@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوابة الكنترول المدرسي — v5 Pro</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { cairo: ['Cairo', 'sans-serif'] },
+                    colors: {
+                        brand: {
+                            dark: '#040810',
+                            card: '#091220',
+                            cardLight: '#0f1e35',
+                            border: '#1a2d4a',
+                            gold: '#f5c518',
+                            goldDark: '#c9a512',
+                            emerald: '#00c896',
+                            orange: '#ff7a2f',
+                            rose: '#f04060',
+                            indigo: '#5b7dff',
+                            purple: '#9b59ff'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+
+        body {
+            background-color: #040810;
+            background-image:
+                radial-gradient(ellipse 80% 60% at 15% 10%, rgba(91,125,255,0.07) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 85% 85%, rgba(245,197,24,0.05) 0%, transparent 55%);
+            background-attachment: fixed;
+        }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #040810; }
+        ::-webkit-scrollbar-thumb { background: #1a2d4a; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: #f5c518; }
+
+        .glass { background: rgba(9,18,32,0.82); backdrop-filter: blur(20px); border: 1px solid rgba(26,45,74,0.7); }
+        .glass-light { background: rgba(15,30,53,0.6); backdrop-filter: blur(12px); border: 1px solid rgba(26,45,74,0.5); }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        @keyframes shimmer {
+            0% { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        .shimmer-text {
+            background: linear-gradient(90deg, #ffffff 0%, #f5c518 30%, #ffffff 60%, #5b7dff 90%, #ffffff 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 4s linear infinite;
+        }
+
+        /* ===== بطاقة النتيجة الرئيسية ===== */
+        .result-card-pass { background: linear-gradient(135deg, rgba(0,200,150,0.06) 0%, rgba(9,18,32,0.95) 100%); border-color: rgba(0,200,150,0.25); }
+        .result-card-fail { background: linear-gradient(135deg, rgba(255,122,47,0.06) 0%, rgba(9,18,32,0.95) 100%); border-color: rgba(255,122,47,0.25); }
+        .result-card-hidden { background: linear-gradient(135deg, rgba(100,116,139,0.06) 0%, rgba(9,18,32,0.95) 100%); border-color: rgba(100,116,139,0.2); }
+
+        /* ===== شارة الحالة ===== */
+        .badge-pass { background: rgba(0,200,150,0.1); color: #00c896; border: 1px solid rgba(0,200,150,0.3); }
+        .badge-fail { background: rgba(255,122,47,0.1); color: #ff7a2f; border: 1px solid rgba(255,122,47,0.3); }
+        .badge-hidden { background: rgba(100,116,139,0.1); color: #94a3b8; border: 1px solid rgba(100,116,139,0.2); }
+
+        /* ===== شريط التقدم المتحرك ===== */
+        .progress-bar { transition: width 1.2s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+        /* ===== بطاقات الملخص ===== */
+        .summary-card { position: relative; overflow: hidden; }
+        .summary-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+        }
+        .summary-card.gold::before { background: linear-gradient(90deg, transparent, #f5c518, transparent); }
+        .summary-card.blue::before { background: linear-gradient(90deg, transparent, #5b7dff, transparent); }
+        .summary-card.green::before { background: linear-gradient(90deg, transparent, #00c896, transparent); }
+
+        /* ===== جدول الدرجات ===== */
+        .grades-table tr { transition: background 0.15s; }
+        .grades-table tr:hover { background: rgba(255,255,255,0.025); }
+        .grades-table td, .grades-table th { border-bottom: 1px solid rgba(26,45,74,0.4); }
+
+        /* ===== حركة الدوران للتحميل ===== */
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; }
+
+        /* ===== طباعة احترافية ===== */
+        @media print {
+            @page { size: A4 portrait; margin: 12mm 14mm; }
+            body { background: white !important; }
+            body * { visibility: hidden; }
+            #printArea, #printArea * { visibility: visible !important; }
+            #printArea {
+                position: fixed; top: 0; left: 0;
+                width: 100%; background: white !important;
+                color: #000 !important;
+            }
+            .no-print { display: none !important; }
+            .print-show { display: block !important; }
+            .print-border { border: 1px solid #555 !important; }
+            * { color: #111 !important; background: transparent !important; }
+            .print-gold { color: #8B6914 !important; font-weight: 800 !important; }
+            .print-green { color: #1a6b47 !important; font-weight: 800 !important; }
+            .print-red { color: #8b1a2a !important; font-weight: 800 !important; }
+        }
+
+        /* ===== نجمة الأداء ===== */
+        .star-rating { color: #f5c518; letter-spacing: 2px; }
+
+        /* ===== حركة النبضة للناجح ===== */
+        /* ===== موبايل: جدول الدرجات ===== */
+        @media (max-width: 640px) {
+            .grades-table th, .grades-table td { padding: 8px 10px; font-size: 11px; }
+            .grades-table .no-print { display: none; }
+            #resultPercentBig { display: none !important; }
+        }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(0,200,150,0.3); }
+            50% { box-shadow: 0 0 0 8px rgba(0,200,150,0); }
+        }
+        .pulse-pass { animation: pulse-green 2s infinite; }
+
+        /* ===== دائرة النسبة ===== */
+        .circle-progress { transform: rotate(-90deg); }
+
+        /* ===== مؤشر المستوى ===== */
+        .level-excellent { background: linear-gradient(135deg, #f5c518, #ff9500); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .level-vgood { background: linear-gradient(135deg, #5b7dff, #9b59ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .level-good { background: linear-gradient(135deg, #00c896, #00a876); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .level-pass { background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .level-fail { background: linear-gradient(135deg, #f04060, #c0392b); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen pb-20">
+
+<!-- ===== مؤشر التحميل ===== -->
+<div id="processingOverlay" class="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 opacity-0 pointer-events-none transition-all duration-300" style="background: rgba(4,8,16,0.97);">
+    <div class="relative w-20 h-20">
+        <div class="absolute inset-0 rounded-full border-4 border-brand-border"></div>
+        <div class="absolute inset-0 rounded-full border-4 border-t-brand-gold spin"></div>
+    </div>
+    <div class="text-center">
+        <h3 class="text-base font-black text-white">جاري تحليل ملف Excel...</h3>
+        <p class="text-xs text-slate-500 mt-1">قراءة الصفحات ورصد درجات الطلاب</p>
+    </div>
+</div>
+
+<!-- ===== الشريط العلوي ===== -->
+<header class="sticky top-0 z-40 border-b border-brand-border/80" style="background: rgba(4,8,16,0.96); backdrop-filter: blur(20px);">
+    <div class="max-w-5xl mx-auto px-3 py-2">
+        <!-- الصف الأول: الشعار + المرحلة -->
+        <div class="flex items-center justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0" style="background: linear-gradient(135deg, #f5c518, #5b7dff);">🎓</div>
+                <div>
+                    <h1 class="font-black text-sm shimmer-text leading-tight">بوابة الكنترول المدرسي</h1>
+                    <p class="text-[9px] text-slate-500 leading-none">v5 Pro</p>
+                </div>
+            </div>
+            <select id="stageSelector" class="hidden admin-only" onchange="changeActiveStage()" class="text-[11px] font-bold text-brand-gold py-1.5 px-2 rounded-lg outline-none cursor-pointer max-w-[160px]" style="background: rgba(9,18,32,0.9); border: 1px solid rgba(26,45,74,0.9);">
+                <option value="all_stages">🏫 جميع الصفوف</option>
+                <option value="primary_low">🎒 ابتدائية (1-3)</option>
+                <option value="primary_high">🎒 ابتدائية (4-6)</option>
+                <option value="prep">🏫 إعدادية (7-8)</option>
+            </select>
+        </div>
+        <!-- الصف الثاني: التنقل كامل العرض -->
+        <nav class="flex items-center gap-1 p-1 rounded-xl w-full" style="background: rgba(9,18,32,0.8); border: 1px solid rgba(26,45,74,0.6);">
+            <button onclick="switchTab('search')" id="tabBtn-search" class="nav-tab active flex-1 py-2 text-xs font-bold rounded-lg transition-all text-brand-gold bg-brand-cardLight text-center">🔍 الاستعلام عن النتيجة</button>
+            <button onclick="switchTab('stats')" id="tabBtn-stats" class="nav-tab flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white text-center hidden admin-only">📊 إحصائيات</button>
+            <button onclick="switchTab('manage')" id="tabBtn-manage" class="nav-tab flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1 hidden admin-only">
+                ⚙️ بيانات <span id="dataStatusDot" class="w-2 h-2 rounded-full bg-brand-emerald shrink-0"></span>
+            </button>
+        </nav>
+        <!-- زر الأدمن المخفي — لوغو يُضغط 5 مرات -->
+        <div id="adminTapZone" title="" style="position:absolute;top:0;left:0;width:40px;height:52px;cursor:default;z-index:99;" onclick="handleAdminTap()"></div>
+    </div>
+</header>
+
+<!-- ===== إشعار Toast ===== -->
+<div id="toastBox" class="fixed bottom-4 left-3 right-3 md:left-auto md:right-6 md:max-w-xs z-50 opacity-0 translate-y-4 transition-all duration-300 pointer-events-none">
+    <div class="glass flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl max-w-xs">
+        <span id="toastIcon" class="text-xl"></span>
+        <div>
+            <p id="toastTitle" class="font-bold text-sm text-white"></p>
+            <p id="toastMsg" class="text-xs text-slate-400"></p>
+        </div>
+    </div>
+</div>
+
+<!-- ===== المحتوى الرئيسي ===== -->
+<main class="max-w-4xl mx-auto px-3 mt-5">
+
+    <!-- =========== تبويب الاستعلام =========== -->
+    <section id="tabContent-search" class="tab-panel fade-up">
+
+        <!-- رأس الاستعلام -->
+        <div class="text-center mb-5">
+            <div class="inline-flex items-center gap-2 text-xs font-bold text-brand-gold mb-3 px-3 py-1 rounded-full" style="background: rgba(245,197,24,0.08); border: 1px solid rgba(245,197,24,0.2);">
+                <span>⚡</span> <span id="searchBadgeLabel">بوابة الاستعلام الفوري</span>
+            </div>
+            <h2 class="text-2xl md:text-4xl font-black text-white leading-tight">ابحث عن نتيجة الطالب</h2>
+            <p class="text-sm text-slate-500 mt-2">بالاسم أو رقم الجلوس — النتيجة فورية</p>
+        </div>
+
+        <!-- صندوق البحث -->
+        <div class="glass p-3 md:p-5 rounded-2xl shadow-2xl mb-5 relative">
+            <div class="relative">
+                <input type="text" id="searchInput" oninput="handleSearchInput()" placeholder="اكتب رقم الجلوس أو اسم الطالب..." autocomplete="off"
+                    class="w-full py-3 px-4 pr-12 text-base font-bold text-white placeholder-slate-600 rounded-xl outline-none transition-all duration-200"
+                    style="background: rgba(4,8,16,0.8); border: 2px solid rgba(26,45,74,0.8);"
+                    onfocus="this.style.borderColor='rgba(245,197,24,0.5)'"
+                    onblur="this.style.borderColor='rgba(26,45,74,0.8)'">
+                <div class="absolute inset-y-0 right-4 flex items-center pointer-events-none">
+                    <span class="text-2xl">🔍</span>
+                </div>
+            </div>
+            <!-- قائمة الاقتراحات -->
+            <div id="suggestionsList" class="absolute left-5 right-5 mt-1 rounded-xl shadow-2xl max-h-64 overflow-y-auto hidden z-30" style="background: #091220; border: 1px solid rgba(26,45,74,0.9);">
+            </div>
+        </div>
+
+        <!-- منطقة النتيجة -->
+        <div id="searchResultArea" class="hidden fade-up">
+            <!-- أزرار التصدير -->
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <p class="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-brand-gold"></span> كشف درجات الطالب الرسمي
+                </p>
+                <div class="flex items-center gap-2">
+                    <button onclick="window.print()" class="no-print flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl transition-all duration-150" style="background: rgba(91,125,255,0.1); border: 1px solid rgba(91,125,255,0.25); color: #5b7dff;">
+                        🖨️ طباعة
+                    </button>
+                    <button id="pdfBtn" onclick="exportStudentPDF()" class="no-print flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl transition-all duration-150" style="background: rgba(245,197,24,0.1); border: 1px solid rgba(245,197,24,0.25); color: #f5c518;">
+                        ⬇️ PDF
+                    </button>
+                </div>
+            </div>
+
+            <!-- ===== ورقة النتيجة الاحترافية ===== -->
+            <div id="printArea" class="glass rounded-2xl overflow-hidden shadow-2xl">
+
+                <!-- ترويسة الطباعة (مخفية في الشاشة) -->
+                <div class="hidden print-show border-b-2 border-gray-300 pb-4 mb-2 px-6 pt-6">
+                    <div class="flex justify-between items-center">
+                        <div class="text-right">
+                            <h2 class="font-extrabold text-base text-black">وزارة التربية والتعليم والتعليم الفني</h2>
+                            <p class="font-bold text-sm text-gray-700 mt-0.5" id="printSchoolLine">قطاع الكنترول المدرسي</p>
+                        </div>
+                        <div class="w-16 h-16 border-2 border-gray-400 rounded-full flex items-center justify-center text-[9px] text-gray-500 text-center leading-tight">ختم<br/>الإدارة</div>
+                        <div class="text-left text-xs text-gray-700">
+                            <p class="font-bold" id="printYear">العام الدراسي: 2025 / 2026</p>
+                            <p class="mt-1">تاريخ الطباعة: <span id="printDateSpan"></span></p>
+                            <p class="mt-1 font-mono font-bold" id="printSeatSpan">رقم الجلوس: ---</p>
+                        </div>
+                    </div>
+                    <h1 class="text-center text-sm font-black underline mt-3" id="printDocTitle">بيان درجات وتقييمات أعمال السنة</h1>
+                </div>
+
+                <!-- ===== بانر حالة الطالب ===== -->
+                <div id="resultBanner" class="p-4 md:p-6 border-b border-brand-border transition-all duration-300">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <!-- معلومات الطالب -->
+                        <div class="flex items-center gap-4">
+                            <!-- أيقونة الحالة الكبيرة -->
+                            <div id="resultIcon" class="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0" style="background: rgba(0,200,150,0.12);">🎓</div>
+                            <div>
+                                <h3 id="studentNameDisplay" class="text-base md:text-2xl font-black text-white leading-tight">---</h3>
+                                <p id="studentMetaDisplay" class="text-xs text-slate-400 mt-0.5">---</p>
+                                <!-- نجوم التقدير -->
+                                <div id="starRatingRow" class="mt-1 star-rating text-sm hidden">★★★★★</div>
+                            </div>
+                        </div>
+                        <!-- شارة الحالة -->
+                        <div class="flex flex-col items-start md:items-end gap-2">
+                            <span id="statusBadgeMain" class="badge-pass px-5 py-2 rounded-full text-sm font-black tracking-wide">---</span>
+                            <p id="resultPercentBig" class="text-2xl font-black text-white hidden">0%</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== المحتوى الطبيعي (غير المحجوب) ===== -->
+                <div id="studentNormalContent" class="p-3 md:p-6">
+
+                    <!-- بطاقات الملخص الثلاثة -->
+                    <div class="grid grid-cols-3 gap-2 mb-5">
+                        <div class="summary-card gold glass-light p-2.5 md:p-4 rounded-xl text-center">
+                            <p id="lblTotalTitle" class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">المجموع الكلي</p>
+                            <p id="summaryTotal" class="text-base md:text-2xl font-black text-brand-gold mt-1">— / —</p>
+                            <!-- دائرة النسبة الصغيرة -->
+                            <div class="mt-2 flex justify-center">
+                                <svg width="48" height="48" viewBox="0 0 48 48" class="circle-progress">
+                                    <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(26,45,74,0.6)" stroke-width="4"/>
+                                    <circle id="progressCircle" cx="24" cy="24" r="20" fill="none" stroke="#f5c518" stroke-width="4"
+                                        stroke-dasharray="125.6" stroke-dashoffset="125.6"
+                                        stroke-linecap="round" style="transition: stroke-dashoffset 1.2s ease;"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="summary-card blue glass-light p-2.5 md:p-4 rounded-xl text-center">
+                            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">النسبة المئوية</p>
+                            <p id="summaryPercent" class="text-base md:text-2xl font-black mt-1" style="color: #5b7dff;">0%</p>
+                            <!-- شريط تقدم أفقي -->
+                            <div class="mt-3 w-full rounded-full h-1.5 overflow-hidden" style="background: rgba(26,45,74,0.6);">
+                                <div id="summaryBar" class="progress-bar h-full rounded-full w-0" style="background: linear-gradient(90deg, #5b7dff, #9b59ff);"></div>
+                            </div>
+                        </div>
+                        <div class="summary-card green glass-light p-2.5 md:p-4 rounded-xl text-center">
+                            <p id="lblApprTitle" class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">التقدير</p>
+                            <p id="summaryAppreciation" class="text-sm md:text-xl font-black mt-1 text-brand-emerald">---</p>
+                            <p id="summaryAppIcon" class="text-xl mt-0.5">🏆</p>
+                        </div>
+                    </div>
+
+                    <!-- دليل ألوان الابتدائية -->
+                    <div id="colorGuideBox" class="hidden mb-5 p-4 rounded-xl" style="background: rgba(9,18,32,0.8); border: 1px solid rgba(26,45,74,0.6);">
+                        <p class="font-bold text-slate-300 text-xs mb-3 text-center">💡 نظام التقييم اللوني — المرحلة الابتدائية</p>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] font-bold text-center">
+                            <div class="p-2 rounded-lg" style="background: rgba(91,125,255,0.12); color: #5b7dff; border: 1px solid rgba(91,125,255,0.2);">🔵 يفوق التوقعات<br/>(85+)</div>
+                            <div class="p-2 rounded-lg" style="background: rgba(0,200,150,0.12); color: #00c896; border: 1px solid rgba(0,200,150,0.2);">🟢 لبّى المعارف<br/>(65-84)</div>
+                            <div class="p-2 rounded-lg" style="background: rgba(251,191,36,0.12); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2);">🟡 يحتاج دعم<br/>(50-64)</div>
+                            <div class="p-2 rounded-lg" style="background: rgba(240,64,96,0.12); color: #f04060; border: 1px solid rgba(240,64,96,0.2);">🔴 لم يتقن بعد<br/>(أقل 50)</div>
+                        </div>
+                    </div>
+
+                    <!-- تنبيه الدور الثاني -->
+                    <div id="secondRoundBox" class="hidden mb-5 p-4 rounded-xl" style="background: rgba(255,122,47,0.08); border: 1px solid rgba(255,122,47,0.3);">
+                        <div class="flex items-start gap-3">
+                            <span class="text-xl mt-0.5">⚠️</span>
+                            <div>
+                                <h4 class="font-extrabold text-sm text-brand-orange">مواد الدور الثاني:</h4>
+                                <p id="secondRoundList" class="text-xs text-slate-200 mt-1 font-medium leading-relaxed"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- رسالة توجيه الراسبين — تُخفي الجدول كاملاً -->
+                    <div id="failRedirectBox" class="hidden">
+                        <div class="text-center py-10 px-4">
+                            <div class="w-20 h-20 rounded-2xl flex items-center justify-center text-4xl mx-auto mb-5" style="background: rgba(255,122,47,0.08); border: 1px solid rgba(255,122,47,0.25);">🏫</div>
+                            <h4 class="text-lg md:text-xl font-black text-white mb-3">يُرجى مراجعة المدرسة للتأكد من نتيجتك</h4>
+                            <p class="text-sm text-slate-300 leading-relaxed max-w-sm mx-auto mb-5">
+                                لمعرفة مواعيد الدور الثاني وتفاصيل المواد، تفضّل بمراجعة إدارة مدرستك مباشرةً أو التواصل مع لجنة الكنترول.
+                            </p>
+                            <div class="inline-flex items-center gap-3 px-5 py-3 rounded-2xl text-sm font-bold" style="background: rgba(255,122,47,0.08); border: 1px solid rgba(255,122,47,0.25); color: #ff7a2f;">
+                                <span class="text-xl">📋</span>
+                                <span>راجع إدارة المدرسة أو لجنة الكنترول</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ===== جدول الدرجات التفصيلي ===== -->
+                    <div class="overflow-x-auto -mx-3 md:mx-0 rounded-none md:rounded-xl" style="border-top: 1px solid rgba(26,45,74,0.5); border-bottom: 1px solid rgba(26,45,74,0.5);">
+                        <table class="w-full text-sm grades-table">
+                            <thead>
+                                <tr style="background: rgba(15,30,53,0.9);">
+                                    <th class="py-3 px-4 text-right font-extrabold text-slate-300 text-xs">المادة الدراسية</th>
+                                    <th class="py-3 px-4 text-center font-extrabold text-slate-300 text-xs">من</th>
+                                    <th class="py-3 px-4 text-center font-extrabold text-slate-300 text-xs">الدرجة</th>
+                                    <th class="py-3 px-4 text-center font-extrabold text-slate-300 text-xs">التقدير</th>
+                                    <th class="py-3 px-4 text-center font-extrabold text-slate-300 text-xs no-print">مستوى</th>
+                                </tr>
+                            </thead>
+                            <tbody id="gradesTableBody"></tbody>
+                        </table>
+                    </div>
+
+                    <!-- توقيعات الطباعة -->
+                    <div class="hidden print-show mt-8 pt-5 border-t border-gray-300 text-black text-xs">
+                        <div class="grid grid-cols-3 text-center gap-6">
+                            <div><p class="font-bold text-gray-700">رئيس لجنة الكنترول</p><p class="mt-10 text-gray-400">............................</p></div>
+                            <div><p class="font-bold text-gray-700">مسؤول رصد الدرجات</p><p class="mt-10 text-gray-400">............................</p></div>
+                            <div><p class="font-bold text-gray-700">مدير المدرسة</p><div class="mt-3 mx-auto w-14 h-14 border-2 border-dashed border-gray-400 rounded-full flex items-center justify-center text-[8px] text-gray-400 leading-tight">ختم<br/>معتمد</div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ===== نتيجة محجوبة ===== -->
+                <div id="studentBlockedContent" class="hidden p-10 md:p-16 text-center">
+                    <div class="w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-5" style="background: rgba(240,64,96,0.1); border: 1px solid rgba(240,64,96,0.2);">🔒</div>
+                    <h4 class="text-2xl font-black text-white mb-2">النتيجة محجوبة</h4>
+                    <p class="text-sm text-slate-400 max-w-md mx-auto leading-relaxed">نتيجة هذا الطالب محجوبة رسمياً من قِبل إدارة الكنترول المدرسي. للاستفسار يرجى مراجعة إدارة المدرسة.</p>
+                </div>
+
+            </div><!-- /printArea -->
+        </div><!-- /searchResultArea -->
+    </section>
+
+    <!-- =========== تبويب الإحصائيات =========== -->
+    <section id="tabContent-stats" class="tab-panel hidden fade-up">
+        <div class="text-center mb-5">
+            <div class="inline-flex items-center gap-2 text-xs font-bold mb-3 px-3 py-1 rounded-full" style="background: rgba(91,125,255,0.08); border: 1px solid rgba(91,125,255,0.2); color: #5b7dff;">
+                <span>📊</span> التقرير التحليلي
+            </div>
+            <h2 class="text-2xl md:text-4xl font-black text-white" id="statsTitleMain">إحصائيات الكنترول العام</h2>
+            <p class="text-sm text-slate-500 mt-2">نسب النجاح والتوزيع لجميع الصفوف</p>
+        </div>
+
+        <!-- فلاتر الصفوف -->
+        <div class="flex flex-wrap gap-2 justify-center mb-6 p-2 rounded-xl max-w-lg mx-auto" style="background: rgba(9,18,32,0.7); border: 1px solid rgba(26,45,74,0.5);">
+            <div id="statsGradeTabsContainer" class="flex flex-wrap gap-1.5 justify-center w-full"></div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            <div class="glass p-4 rounded-2xl" style="border-right: 3px solid #5b7dff;">
+                <p class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">إجمالي الطلاب</p>
+                <p id="kpiTotal" class="text-3xl md:text-4xl font-black text-white mt-2">0</p>
+                <p class="text-xs text-slate-500 mt-1">طالب مسجل</p>
+            </div>
+            <div class="glass p-4 rounded-2xl" style="border-right: 3px solid #00c896;">
+                <p class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">الناجحون</p>
+                <p id="kpiPassed" class="text-3xl md:text-4xl font-black mt-2" style="color: #00c896;">0</p>
+                <p id="kpiPassedPct" class="text-xs mt-1 font-bold" style="color: rgba(0,200,150,0.7);">0%</p>
+            </div>
+            <div class="glass p-4 rounded-2xl" style="border-right: 3px solid #ff7a2f;">
+                <p class="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">دور ثانٍ / ملحق</p>
+                <p id="kpiSecond" class="text-3xl md:text-4xl font-black mt-2" style="color: #ff7a2f;">0</p>
+                <p id="kpiSecondPct" class="text-xs mt-1 font-bold" style="color: rgba(255,122,47,0.7);">0%</p>
+            </div>
+        </div>
+
+        <!-- الرسوم البيانية -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <!-- توزيع التقديرات -->
+            <div class="glass p-5 rounded-2xl">
+                <h4 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-5">توزيع التقديرات العامة</h4>
+                <div class="flex items-center justify-around gap-4 flex-wrap">
+                    <div class="relative w-36 h-36 flex items-center justify-center">
+                        <svg viewBox="0 0 100 100" class="w-full h-full" style="transform: rotate(-90deg);" id="svgPieChart"></svg>
+                        <div class="absolute inset-0 flex flex-col items-center justify-center">
+                            <span id="donutPct" class="text-lg font-black text-white">0%</span>
+                            <span class="text-[9px] text-slate-400">ناجحون</span>
+                        </div>
+                    </div>
+                    <div id="appreciationLegend" class="flex flex-col gap-2 text-xs"></div>
+                </div>
+            </div>
+
+            <!-- أكثر المواد رسوباً -->
+            <div class="glass p-5 rounded-2xl">
+                <h4 class="text-xs font-extrabold text-slate-400 uppercase tracking-wider mb-5">أكثر المواد تعثراً — الدور الثاني</h4>
+                <div id="subjectsFailureChart" class="flex flex-col gap-3"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- =========== تبويب إدارة البيانات =========== -->
+    <section id="tabContent-manage" class="tab-panel hidden fade-up">
+        <div class="text-center mb-5">
+            <div class="inline-flex items-center gap-2 text-xs font-bold mb-3 px-3 py-1 rounded-full" style="background: rgba(0,200,150,0.08); border: 1px solid rgba(0,200,150,0.2); color: #00c896;">
+                <span>⚙️</span> منطقة التحكم
+            </div>
+            <h2 class="text-2xl font-black text-white">إدارة وإدراج البيانات</h2>
+            <p class="text-sm text-slate-500 mt-2" id="manageSubtitle">رفع ملف Excel أو الإدخال اليدوي</p>
+        </div>
+
+        <!-- أزرار الإجراءات -->
+        <div class="grid grid-cols-2 gap-3 mb-5">
+            <button onclick="triggerExcelImportTemplate()" class="glass-light p-4 rounded-2xl text-center text-xs font-black transition-all hover:scale-105 flex flex-col items-center gap-2" style="color: #5b7dff;">
+                <span class="text-2xl">📊</span> تنزيل قالب
+            </button>
+            <div class="relative glass-light p-4 rounded-2xl text-center text-xs font-black flex flex-col items-center gap-2 cursor-pointer transition-all hover:scale-105" style="color: #00c896;">
+                <span class="text-2xl">📁</span> رفع Excel
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls" onchange="handleExcelFileSelect(event)" class="absolute inset-0 opacity-0 cursor-pointer">
+            </div>
+            <button onclick="restoreDemoDataset()" class="glass-light p-4 rounded-2xl text-center text-xs font-black transition-all hover:scale-105 flex flex-col items-center gap-2" style="color: #f5c518;">
+                <span class="text-2xl">🔄</span> بيانات تجريبية
+            </button>
+            <button onclick="clearDatabase()" class="glass-light p-4 rounded-2xl text-center text-xs font-black transition-all hover:scale-105 flex flex-col items-center gap-2" style="color: #f04060;">
+                <span class="text-2xl">🗑️</span> مسح الكل
+            </button>
+        </div>
+
+        <!-- منطقة الإدخال النصي -->
+        <div class="glass p-5 rounded-2xl mb-5">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h3 class="font-extrabold text-sm text-white flex items-center gap-2"><span>📤</span> إدخال نصي مباشر</h3>
+                <select id="importFormatSelect" onchange="toggleImportGuide()" class="text-xs py-1.5 px-3 rounded-lg outline-none text-slate-300" style="background: rgba(4,8,16,0.8); border: 1px solid rgba(26,45,74,0.7);">
+                    <option value="csv">فواصل (CSV)</option>
+                    <option value="tsv">مسافات (Tab)</option>
+                </select>
+            </div>
+            <div class="p-3 rounded-xl text-xs mb-4" style="background: rgba(4,8,16,0.5); border: 1px solid rgba(26,45,74,0.4);">
+                <p class="font-bold text-slate-300 mb-2">التنسيق المعتمد للمرحلة الحالية:</p>
+                <code id="sampleFormatCode" class="block overflow-x-auto whitespace-nowrap font-mono text-brand-gold p-2 rounded" style="background: rgba(4,8,16,0.7);"></code>
+            </div>
+            <textarea id="importRawDataTextarea" rows="5" placeholder="الصق بيانات الجدول هنا..." class="w-full py-3 px-4 font-mono text-xs text-slate-200 placeholder-slate-700 rounded-xl outline-none resize-none transition-all" style="background: rgba(4,8,16,0.7); border: 1px solid rgba(26,45,74,0.6);"
+                onfocus="this.style.borderColor='rgba(0,200,150,0.4)'"
+                onblur="this.style.borderColor='rgba(26,45,74,0.6)'"></textarea>
+            <div class="mt-4 flex justify-between items-center flex-wrap gap-3">
+                <p class="text-xs text-slate-500">البيانات تُدمج مع الذاكرة الحالية للمرحلة</p>
+                <button onclick="parseAndImportRawData()" class="px-5 py-2.5 text-xs font-black rounded-xl transition-all duration-150 shadow-lg" style="background: #00c896; color: #040810;">
+                    ✅ معالجة وحفظ
+                </button>
+            </div>
+        </div>
+
+        <!-- جدول الطلاب النشطين -->
+        <div class="glass p-5 rounded-2xl">
+            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h3 class="font-extrabold text-sm text-white" id="dbStatusTitle">قاعدة البيانات النشطة</h3>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold" style="background: rgba(0,200,150,0.08); color: #00c896; border: 1px solid rgba(0,200,150,0.2);">
+                    <span id="activeStudentsCountBadge">0 طالب</span> <span>•</span> <span>محلي 100%</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto max-h-64 overflow-y-auto rounded-xl" style="border: 1px solid rgba(26,45,74,0.5);">
+                <table class="w-full text-xs grades-table">
+                    <thead>
+                        <tr style="background: rgba(15,30,53,0.9); position: sticky; top: 0;">
+                            <th class="py-2.5 px-3 text-right font-extrabold text-slate-300">رقم الجلوس</th>
+                            <th class="py-2.5 px-3 text-right font-extrabold text-slate-300">الاسم</th>
+                            <th class="py-2.5 px-3 text-center font-extrabold text-slate-300">الصف</th>
+                            <th class="py-2.5 px-3 text-center font-extrabold text-slate-300">الحالة</th>
+                            <th class="py-2.5 px-3 text-center font-extrabold text-slate-300">المجموع</th>
+                            <th class="py-2.5 px-3 text-center font-extrabold text-slate-300">حذف</th>
+                        </tr>
+                    </thead>
+                    <tbody id="manageTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+const STORAGE_PREFIX = 'edu_portal_v5_stage_';
+
+const STAGE_CONFIGS = {
+    all_stages: {
+        label: 'جميع الصفوف (1 - 8)',
+        reportTitle: 'كشف درجات وشهادة أعمال السنة الموحدة',
+        fields: "رقم الجلوس,الاسم,الصف,العربية,الإنجليزية,الرياضيات,العلوم,الدراسات,محجوب",
+        gradesSystem: 'classic',
+        subjects: [
+            { name: "اللغة العربية", max: 100, aliases: ["اللغة العربية","العربية","عربي"], isExtra: false },
+            { name: "اللغة الإنجليزية", max: 100, aliases: ["اللغة الانجليزية","الإنجليزية","انجليزي"], isExtra: false },
+            { name: "الرياضيات", max: 100, aliases: ["الرياضيات","رياضيات"], isExtra: false },
+            { name: "العلوم", max: 100, aliases: ["العلوم","علوم"], isExtra: false },
+            { name: "الدراسات الاجتماعية", max: 100, aliases: ["الدراسات الاجتماعية","الدراسات","دراسات"], isExtra: false }
+        ]
+    },
+    primary_low: {
+        label: 'الابتدائية الصغرى (1-3)',
+        reportTitle: 'كشف تقييمات الصفوف الأولى الموحد',
+        fields: "رقم الجلوس,الاسم,الصف,العربية,الإنجليزية,الرياضيات,التربية الدينية,المستوى الرفيع,محجوب",
+        gradesSystem: 'colors',
+        subjects: [
+            { name: "اللغة العربية", max: 100, aliases: ["اللغة العربية","العربية","عربي"], isExtra: false },
+            { name: "اللغة الإنجليزية", max: 100, aliases: ["اللغة الانجليزية","الإنجليزية","انجليزي"], isExtra: false },
+            { name: "الرياضيات", max: 100, aliases: ["الرياضيات","رياضيات"], isExtra: false },
+            { name: "التربية الدينية", max: 100, aliases: ["التربية الدينية","دينية","الدين"], isExtra: true },
+            { name: "المستوى الرفيع (1)", max: 100, aliases: ["المستوى الرفيع (1)","مستوى رفيع"], isExtra: true }
+        ]
+    },
+    primary_high: {
+        label: 'الابتدائية الكبرى (4-6)',
+        reportTitle: 'كشف درجات وألوان تقييم المرحلة الابتدائية الكبرى',
+        fields: "رقم الجلوس,الاسم,الصف,العربية,الإنجليزية,الرياضيات,العلوم,الدراسات,تكنولوجيا,المهارات,الدينية,محجوب",
+        gradesSystem: 'colors',
+        subjects: [
+            { name: "اللغة العربية", max: 100, aliases: ["اللغة العربية","العربية","عربي"], isExtra: false },
+            { name: "اللغة الإنجليزية", max: 100, aliases: ["اللغة الانجليزية","الإنجليزية","انجليزي"], isExtra: false },
+            { name: "الرياضيات", max: 100, aliases: ["الرياضيات","رياضيات"], isExtra: false },
+            { name: "العلوم", max: 100, aliases: ["العلوم","علوم"], isExtra: false },
+            { name: "الدراسات الاجتماعية", max: 100, aliases: ["الدراسات الاجتماعية","الدراسات","دراسات"], isExtra: false },
+            { name: "تكنولوجيا المعلومات", max: 100, aliases: ["تكنولوجيا المعلومات","تكنولوجيا","حاسب","it"], isExtra: true },
+            { name: "المهارات المهنية", max: 100, aliases: ["المهارات المهنية","المهارات","مهارات"], isExtra: true },
+            { name: "التربية الدينية", max: 100, aliases: ["التربية الدينية","دينية","الدين"], isExtra: true },
+            { name: "المستوى الرفيع (1)", max: 100, aliases: ["المستوى الرفيع (1)"], isExtra: true },
+            { name: "المستوى الرفيع (2)", max: 100, aliases: ["المستوى الرفيع (2)"], isExtra: true }
+        ]
+    },
+    prep: {
+        label: 'الإعدادية (7-8)',
+        reportTitle: 'كشف درجات أعمال السنة والشهادة الإعدادية',
+        fields: "رقم الجلوس,الاسم,الصف,العربية,الإنجليزية,الرياضيات,العلوم,الدراسات,الدينية,الرياضية,الفنية,الموسيقى,الحاسب,محجوب",
+        gradesSystem: 'classic',
+        subjects: [
+            { name: "اللغة العربية", max: 80, aliases: ["اللغة العربية","العربية","عربي"], isExtra: false },
+            { name: "اللغة الإنجليزية", max: 60, aliases: ["اللغة الانجليزية","الإنجليزية","انجليزي"], isExtra: false },
+            { name: "الرياضيات", max: 60, aliases: ["الرياضيات","رياضيات"], isExtra: false },
+            { name: "العلوم", max: 40, aliases: ["العلوم","علوم"], isExtra: false },
+            { name: "الدراسات الاجتماعية", max: 40, aliases: ["الدراسات الاجتماعية","الدراسات","دراسات"], isExtra: false },
+            { name: "التربية الدينية", max: 40, aliases: ["التربية الدينية","دينية","الدين"], isExtra: true },
+            { name: "التربية الرياضية", max: 20, aliases: ["التربية الرياضية","رياضية"], isExtra: true },
+            { name: "التربية الفنية", max: 20, aliases: ["التربية الفنية","فنية","رسم"], isExtra: true },
+            { name: "التربية الموسيقية", max: 20, aliases: ["التربية الموسيقى","موسيقى","الموسيقية"], isExtra: true },
+            { name: "الحاسب الآلي", max: 20, aliases: ["الحاسب الالى","حاسب","كمبيوتر"], isExtra: true },
+            { name: "النشاط (أ)", max: 20, aliases: ["النشاط الاختيارى (أ)","نشاط1"], isExtra: true },
+            { name: "النشاط (ب)", max: 20, aliases: ["النشاط الاختيارى (ب)","نشاط2"], isExtra: true },
+            { name: "المستوى الرفيع (1)", max: 50, aliases: ["المستوى الرفيع (1)"], isExtra: true },
+            { name: "المستوى الرفيع (2)", max: 40, aliases: ["المستوى الرفيع (2)"], isExtra: true }
+        ]
+    }
+};
+
+const DEMO_DATASETS = {
+    all_stages: {
+        "1001": { name: "ابانوب امليك عبدالله فرج ديمترى", grade: 7, status: "ناجح", total_got: 239.0, total_max: 280, second_round: null, hidden: false, grades: [
+            {subject:"اللغة العربية",got:71.6,max:80,isExtra:false},{subject:"اللغة الإنجليزية",got:51.3,max:60,isExtra:false},
+            {subject:"الرياضيات",got:42.3,max:60,isExtra:false},{subject:"العلوم",got:38.2,max:40,isExtra:false},
+            {subject:"الدراسات الاجتماعية",got:37.6,max:40,isExtra:false},{subject:"التربية الدينية",got:38,max:40,isExtra:true},
+            {subject:"التربية الرياضية",got:20,max:20,isExtra:true},{subject:"التربية الفنية",got:16,max:20,isExtra:true},{subject:"الحاسب الآلي",got:13.1,max:20,isExtra:true},
+            {subject:"المستوى الرفيع (1)",got:44,max:50,isExtra:true},{subject:"المستوى الرفيع (2)",got:35,max:40,isExtra:true}
+        ]},
+        "1002": { name: "سارة محمد علي حسن", grade: 5, status: "ناجح", total_got: 460, total_max: 500, second_round: null, hidden: false, grades: [
+            {subject:"اللغة العربية",got:92,max:100,isExtra:false},{subject:"اللغة الإنجليزية",got:95,max:100,isExtra:false},
+            {subject:"الرياضيات",got:88,max:100,isExtra:false},{subject:"العلوم",got:91,max:100,isExtra:false},
+            {subject:"الدراسات الاجتماعية",got:94,max:100,isExtra:false},{subject:"تكنولوجيا المعلومات",got:88,max:100,isExtra:true}
+        ]},
+        "1003": { name: "كريم عبدالرحمن سيد احمد", grade: 7, status: "دور ثاني", total_got: 112, total_max: 280, second_round: "الرياضيات - العلوم - الدراسات الاجتماعية", hidden: false, grades: [
+            {subject:"اللغة العربية",got:42,max:80,isExtra:false},{subject:"اللغة الإنجليزية",got:28,max:60,isExtra:false},
+            {subject:"الرياضيات",got:18,max:60,isExtra:false},{subject:"العلوم",got:14,max:40,isExtra:false},
+            {subject:"الدراسات الاجتماعية",got:10,max:40,isExtra:false},{subject:"التربية الدينية",got:30,max:40,isExtra:true}
+        ]},
+        "1004": { name: "مريم فتحي عبدالله ناصر", grade: 3, status: "ناجح", total_got: 278, total_max: 300, second_round: null, hidden: false, grades: [
+            {subject:"اللغة العربية",got:95,max:100,isExtra:false},{subject:"اللغة الإنجليزية",got:90,max:100,isExtra:false},
+            {subject:"الرياضيات",got:93,max:100,isExtra:false},{subject:"التربية الدينية",got:88,max:100,isExtra:true}
+        ]},
+        "1005": { name: "يوسف ماهر جمال الدين", grade: 8, status: "ناجح", total_got: 198, total_max: 280, second_round: null, hidden: true, grades: [] }
+    },
+    primary_low: {},
+    primary_high: {},
+    prep: {}
+};
+
+let activeStage = 'all_stages';
+let db = {};
+let activeStatsGrade = 'all';
+
+window.addEventListener('DOMContentLoaded', () => {
+    loadDB();
+    init();
+});
+
+function loadDB() {
+    try {
+        const stored = localStorage.getItem(STORAGE_PREFIX + activeStage);
+        db = stored ? JSON.parse(stored) : { ...DEMO_DATASETS[activeStage] };
+        if (!stored) saveDB();
+    } catch(e) {
+        db = { ...DEMO_DATASETS[activeStage] };
+    }
+    updateStatusDot();
+}
+
+function saveDB() {
+    try { localStorage.setItem(STORAGE_PREFIX + activeStage, JSON.stringify(db)); } catch(e) {}
+    updateStatusDot();
+}
+
+function updateStatusDot() {
+    const count = Object.keys(db).length;
+    const dot = document.getElementById('dataStatusDot');
+    if (dot) dot.className = `w-2 h-2 rounded-full ${count > 0 ? 'bg-brand-emerald' : 'bg-brand-rose'}`;
+    const badge = document.getElementById('activeStudentsCountBadge');
+    if (badge) badge.textContent = count.toLocaleString('ar-EG') + ' طالب';
+    const dbTitle = document.getElementById('dbStatusTitle');
+    if (dbTitle) dbTitle.textContent = `قاعدة البيانات — ${STAGE_CONFIGS[activeStage].label}`;
+}
+
+function init() {
+    toggleImportGuide();
+    refreshManageTable();
+    renderStats();
+    buildGradeTabs();
+}
+
+function changeActiveStage() {
+    activeStage = document.getElementById('stageSelector').value;
+    activeStatsGrade = 'all';
+    loadDB();
+    init();
+    document.getElementById('searchInput').value = '';
+    document.getElementById('searchResultArea').classList.add('hidden');
+    document.getElementById('suggestionsList').classList.add('hidden');
+    document.getElementById('searchBadgeLabel').textContent = `استعلام — ${STAGE_CONFIGS[activeStage].label}`;
+    showToast('🔄', 'تغيير المرحلة', `تم التحول إلى ${STAGE_CONFIGS[activeStage].label}`);
+}
+
+function showToast(icon, title, msg) {
+    const box = document.getElementById('toastBox');
+    document.getElementById('toastIcon').textContent = icon;
+    document.getElementById('toastTitle').textContent = title;
+    document.getElementById('toastMsg').textContent = msg;
+    box.className = 'fixed bottom-4 left-3 right-3 md:left-auto md:right-6 md:max-w-xs z-50 transition-all duration-300 opacity-100 translate-y-0';
+    setTimeout(() => {
+        box.className = 'fixed bottom-4 left-3 right-3 md:left-auto md:right-6 md:max-w-xs z-50 transition-all duration-300 opacity-0 translate-y-4 pointer-events-none';
+    }, 3500);
+}
+
+function switchTab(id) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.nav-tab').forEach(b => {
+        b.className = 'nav-tab flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white text-center';
+        if (b.id === `tabBtn-${id}`) b.className = 'nav-tab active flex-1 py-2 text-xs font-bold rounded-lg transition-all text-brand-gold bg-brand-cardLight text-center';
+    });
+    document.getElementById(`tabContent-${id}`).classList.remove('hidden');
+    if (id === 'stats') renderStats();
+    else if (id === 'manage') refreshManageTable();
+}
+
+function getGradeLabel(n) {
+    const m = {1:'الأول الابتدائي',2:'الثاني الابتدائي',3:'الثالث الابتدائي',4:'الرابع الابتدائي',5:'الخامس الابتدائي',6:'السادس الابتدائي',7:'السابع الإعدادي',8:'الثامن الإعدادي'};
+    return m[n] ? `الصف ${m[n]}` : `الصف ${n}`;
+}
+
+function isColorGrade(n) { return n >= 1 && n <= 6; }
+
+function getAppreciation(pct, useColor) {
+    if (useColor) {
+        if (pct >= 85) return { text: 'يفوق التوقعات 🔵', cls: 'level-vgood', icon: '🌟', stars: 5 };
+        if (pct >= 65) return { text: 'لبّى المعارف 🟢', cls: 'level-good', icon: '✅', stars: 4 };
+        if (pct >= 50) return { text: 'يحتاج دعم 🟡', cls: 'level-pass', icon: '📚', stars: 3 };
+        return { text: 'لم يتقن بعد 🔴', cls: 'level-fail', icon: '⚠️', stars: 1 };
+    } else {
+        if (pct >= 90) return { text: 'ممتاز', cls: 'level-excellent', icon: '🏆', stars: 5 };
+        if (pct >= 75) return { text: 'جيد جداً', cls: 'level-vgood', icon: '⭐', stars: 4 };
+        if (pct >= 65) return { text: 'جيد', cls: 'level-good', icon: '👍', stars: 3 };
+        if (pct >= 50) return { text: 'مقبول', cls: 'level-pass', icon: '📝', stars: 2 };
+        return { text: 'دون المستوى', cls: 'level-fail', icon: '📉', stars: 1 };
+    }
+}
+
+// ===== محرك البحث =====
+function handleSearchInput() {
+    const q = document.getElementById('searchInput').value.trim().toLowerCase();
+    const sugg = document.getElementById('suggestionsList');
+    sugg.innerHTML = '';
+    if (!q) { sugg.classList.add('hidden'); return; }
+
+    const matches = Object.entries(db).filter(([seat, s]) =>
+        seat.includes(q) || s.name.toLowerCase().includes(q)
+    ).slice(0, 6);
+
+    if (!matches.length) {
+        sugg.innerHTML = `<div class="p-4 text-xs text-center text-slate-500">لا توجد نتائج مطابقة للبحث</div>`;
+        sugg.classList.remove('hidden');
+        return;
+    }
+
+    matches.forEach(([seat, student]) => {
+        const div = document.createElement('div');
+        div.className = 'p-3 flex items-center justify-between cursor-pointer transition-all';
+        div.style.borderBottom = '1px solid rgba(26,45,74,0.5)';
+        div.onmouseenter = () => div.style.background = 'rgba(255,255,255,0.03)';
+        div.onmouseleave = () => div.style.background = 'transparent';
+        div.onclick = () => selectStudent(seat);
+
+        const statusIcon = student.hidden ? '🔒' : (student.status === 'ناجح' ? '✅' : '📝');
+        const pct = student.total_max > 0 ? ((student.total_got / student.total_max) * 100).toFixed(0) : 0;
+
+        div.innerHTML = `
+            <div>
+                <p class="font-bold text-sm text-white">${student.name}</p>
+                <p class="text-[10px] text-slate-400 mt-0.5">رقم الجلوس: <span class="font-mono text-brand-gold font-bold">${seat}</span> — ${getGradeLabel(student.grade)}</p>
+            </div>
+            <div class="flex flex-col items-end gap-1">
+                <span class="text-xs font-bold">${statusIcon} ${student.hidden ? 'محجوب' : student.status}</span>
+                ${!student.hidden ? `<span class="text-[10px] text-slate-500">${pct}%</span>` : ''}
+            </div>
+        `;
+        sugg.appendChild(div);
+    });
+    sugg.classList.remove('hidden');
+}
+
+// ===== عرض نتيجة الطالب =====
+function selectStudent(seat) {
+    document.getElementById('suggestionsList').classList.add('hidden');
+    document.getElementById('searchInput').value = seat;
+
+    const student = db[seat];
+    if (!student) return;
+
+    const useColor = isColorGrade(student.grade);
+    const config = STAGE_CONFIGS[activeStage];
+
+    // تحديث بيانات الطباعة
+    document.getElementById('printSchoolLine').textContent = getGradeLabel(student.grade);
+    document.getElementById('printDocTitle').textContent = config.reportTitle;
+    document.getElementById('printDateSpan').textContent = new Date().toLocaleDateString('ar-EG');
+    document.getElementById('printSeatSpan').textContent = `رقم الجلوس: ${seat}`;
+
+    // اسم الطالب
+    document.getElementById('studentNameDisplay').textContent = student.name;
+    document.getElementById('studentMetaDisplay').textContent = `${getGradeLabel(student.grade)} — رقم الجلوس: ${seat}`;
+
+    if (student.hidden) {
+        // محجوب
+        document.getElementById('studentNormalContent').classList.add('hidden');
+        document.getElementById('studentBlockedContent').classList.remove('hidden');
+        document.getElementById('resultBanner').className = 'p-6 border-b border-brand-border transition-all result-card-hidden';
+        document.getElementById('resultIcon').style.background = 'rgba(100,116,139,0.12)';
+        document.getElementById('resultIcon').textContent = '🔒';
+        document.getElementById('statusBadgeMain').className = 'badge-hidden px-5 py-2 rounded-full text-sm font-black tracking-wide';
+        document.getElementById('statusBadgeMain').textContent = '🔒 محجوبة';
+        document.getElementById('starRatingRow').classList.add('hidden');
+        document.getElementById('resultPercentBig').classList.add('hidden');
+    } else {
+        document.getElementById('studentBlockedContent').classList.add('hidden');
+        document.getElementById('studentNormalContent').classList.remove('hidden');
+        document.getElementById('failRedirectBox').classList.add('hidden');
+        const prevGradeTbl = document.querySelector('table.grades-table')?.closest('.overflow-x-auto');
+        if (prevGradeTbl) prevGradeTbl.style.display = '';
+
+        const pct = student.total_max > 0 ? (student.total_got / student.total_max) * 100 : 0;
+        const appr = getAppreciation(pct, useColor);
+
+        // بانر الحالة
+        if (student.status === 'ناجح') {
+            document.getElementById('resultBanner').className = 'p-4 md:p-6 border-b transition-all result-card-pass';
+            document.getElementById('statusBadgeMain').className = 'badge-pass pulse-pass px-5 py-2 rounded-full text-sm font-black tracking-wide';
+            document.getElementById('statusBadgeMain').textContent = '🏆 ناجح';
+            document.getElementById('resultIcon').style.background = 'rgba(0,200,150,0.12)';
+            document.getElementById('resultIcon').textContent = '🎓';
+            // تأكد إظهار الجدول وإخفاء رسالة الراسبين
+            document.getElementById('failRedirectBox').classList.add('hidden');
+            const gradesTbl = document.querySelector('table.grades-table')?.closest('.overflow-x-auto');
+            if (gradesTbl) gradesTbl.style.display = '';
+            setTimeout(() => { try { confetti({ particleCount: 80, spread: 60, origin: { y: 0.5 } }); } catch(e){} }, 200);
+        } else {
+            document.getElementById('resultBanner').className = 'p-4 md:p-6 border-b transition-all result-card-fail';
+            document.getElementById('statusBadgeMain').className = 'badge-fail px-5 py-2 rounded-full text-sm font-black tracking-wide';
+            document.getElementById('statusBadgeMain').textContent = '📝 دور ثانٍ';
+            document.getElementById('resultIcon').style.background = 'rgba(255,122,47,0.12)';
+            document.getElementById('resultIcon').textContent = '📋';
+            // إخفاء الجدول وعرض رسالة التوجيه للراسبين
+            document.getElementById('failRedirectBox').classList.remove('hidden');
+            document.querySelector('.overflow-x-auto.-mx-3') && (document.querySelector('.overflow-x-auto.-mx-3').style.display = 'none');
+            document.querySelector('table.grades-table')?.closest('.overflow-x-auto') && (document.querySelector('table.grades-table').closest('.overflow-x-auto').style.display = 'none');
+            document.getElementById('colorGuideBox').classList.add('hidden');
+        }
+
+        // نجوم التقدير
+        const starRow = document.getElementById('starRatingRow');
+        starRow.classList.remove('hidden');
+        starRow.textContent = '★'.repeat(appr.stars) + '☆'.repeat(5 - appr.stars);
+
+        // النسبة الكبيرة
+        const pctBig = document.getElementById('resultPercentBig');
+        pctBig.classList.remove('hidden');
+        pctBig.textContent = pct.toFixed(1) + '%';
+
+        // بطاقات الملخص
+        document.getElementById('summaryTotal').textContent = `${student.total_got} / ${student.total_max}`;
+        document.getElementById('summaryPercent').textContent = pct.toFixed(1) + '%';
+        setTimeout(() => { document.getElementById('summaryBar').style.width = pct + '%'; }, 100);
+
+        // دائرة التقدم
+        const circumference = 2 * Math.PI * 20;
+        const dashOffset = circumference - (pct / 100) * circumference;
+        setTimeout(() => { document.getElementById('progressCircle').style.strokeDashoffset = dashOffset; }, 100);
+
+        // التقدير
+        const appEl = document.getElementById('summaryAppreciation');
+        appEl.textContent = appr.text;
+        appEl.className = `text-xl md:text-2xl font-black mt-2 ${appr.cls}`;
+        document.getElementById('summaryAppIcon').textContent = appr.icon;
+
+        // عناوين ملائمة للمرحلة
+        document.getElementById('lblTotalTitle').textContent = useColor ? 'المجموع التراكمي' : 'المجموع الكلي';
+        document.getElementById('lblApprTitle').textContent = useColor ? 'التقييم اللوني' : 'التقدير العام';
+
+        // دليل الألوان
+        useColor ? document.getElementById('colorGuideBox').classList.remove('hidden') : document.getElementById('colorGuideBox').classList.add('hidden');
+
+        // الدور الثاني
+        if (student.status === 'دور ثاني') {
+            document.getElementById('secondRoundList').textContent = student.second_round || 'راجع جدول المواد أدناه';
+            document.getElementById('secondRoundBox').classList.remove('hidden');
+        } else {
+            document.getElementById('secondRoundBox').classList.add('hidden');
+        }
+
+        // ===== بناء جدول الدرجات =====
+        const tbody = document.getElementById('gradesTableBody');
+        tbody.innerHTML = '';
+
+        // فاصل المواد الأساسية
+        let addedExtraHeader = false;
+
+        student.grades.forEach(g => {
+            // المستوى الرفيع: أظهره فقط إذا كان لديه درجة فعلية (> 0)
+            const isMostawaa = g.subject && g.subject.includes('المستوى الرفيع');
+            const isAbsent = g.got === 'غ' || g.got === null || g.got === undefined || g.got === '' || g.got === 0 || g.got === '0';
+            if (isMostawaa && isAbsent) return; // تخطّ المستوى الرفيع إذا لم يسجل فيه
+
+            // إضافة رأس فاصل للمواد الإضافية
+            if (g.isExtra && !addedExtraHeader) {
+                addedExtraHeader = true;
+                const sepRow = document.createElement('tr');
+                sepRow.innerHTML = `<td colspan="5" class="py-2 px-4 text-[10px] font-extrabold text-slate-500 uppercase tracking-widest" style="background: rgba(4,8,16,0.4);">— مواد الأنشطة والإضافية —</td>`;
+                tbody.appendChild(sepRow);
+            }
+
+            const isAbsentDisplay = g.got === 'غ' || g.got === null || g.got === undefined || g.got === '';
+            const gotNum = isAbsentDisplay ? 0 : parseFloat(g.got);
+            const subPct = g.max > 0 ? (gotNum / g.max) * 100 : 0;
+
+            let scoreColor, barBg, evalLabel;
+
+            if (isAbsentDisplay) {
+                scoreColor = '#f04060'; barBg = 'rgba(240,64,96,0.3)'; evalLabel = '⛔ غياب';
+            } else if (useColor) {
+                if (subPct >= 85) { scoreColor = '#5b7dff'; barBg = '#5b7dff'; evalLabel = '🔵 ممتاز'; }
+                else if (subPct >= 65) { scoreColor = '#00c896'; barBg = '#00c896'; evalLabel = '🟢 جيد'; }
+                else if (subPct >= 50) { scoreColor = '#fbbf24'; barBg = '#fbbf24'; evalLabel = '🟡 مقبول'; }
+                else { scoreColor = '#f04060'; barBg = '#f04060'; evalLabel = '🔴 ضعيف'; }
+            } else {
+                if (subPct < 50) { scoreColor = '#f04060'; barBg = '#f04060'; evalLabel = '❌ ضعيف'; }
+                else if (subPct >= 90) { scoreColor = '#f5c518'; barBg = 'linear-gradient(90deg, #f5c518, #ff9500)'; evalLabel = '🏆 ممتاز'; }
+                else if (subPct >= 75) { scoreColor = '#5b7dff'; barBg = '#5b7dff'; evalLabel = '⭐ جيد جداً'; }
+                else if (subPct >= 65) { scoreColor = '#00c896'; barBg = '#00c896'; evalLabel = '✅ جيد'; }
+                else { scoreColor = '#fbbf24'; barBg = '#fbbf24'; evalLabel = '📝 مقبول'; }
+            }
+
+            const tr = document.createElement('tr');
+            tr.style.transition = 'background 0.15s';
+            tr.innerHTML = `
+                <td class="py-3 px-4 font-bold text-white text-sm">
+                    ${g.subject}
+                    ${g.isExtra ? '<span class="text-[10px] text-slate-500 font-normal no-print"> (إضافية)</span>' : ''}
+                </td>
+                <td class="py-3 px-4 text-center text-slate-400 text-sm">${g.max}</td>
+                <td class="py-3 px-4 text-center text-sm font-black" style="color: ${scoreColor};">${isAbsentDisplay ? 'غياب' : g.got}</td>
+                <td class="py-3 px-4 text-center text-xs font-bold" style="color: ${scoreColor};">${evalLabel}</td>
+                <td class="py-3 px-4 no-print">
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1 rounded-full h-2 overflow-hidden" style="background: rgba(26,45,74,0.6);">
+                            <div class="progress-bar h-full rounded-full" style="width: ${isAbsentDisplay ? 0 : subPct}%; background: ${barBg};"></div>
+                        </div>
+                        <span class="text-[10px] text-slate-500 w-8 text-left">${isAbsentDisplay ? '—' : subPct.toFixed(0) + '%'}</span>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // صف المجموع الكلي
+        let totalEval;
+        if (useColor) {
+            totalEval = pct >= 85 ? '🔵 أزرق' : pct >= 65 ? '🟢 أخضر' : pct >= 50 ? '🟡 أصفر' : '🔴 أحمر';
+        } else {
+            totalEval = pct >= 90 ? '🏆 ممتاز' : pct >= 75 ? '⭐ جيد جداً' : pct >= 65 ? '✅ جيد' : pct >= 50 ? '📝 مقبول' : '❌ دون المستوى';
+        }
+
+        const tTotal = document.createElement('tr');
+        tTotal.style.background = 'rgba(245,197,24,0.04)';
+        tTotal.style.borderTop = '2px solid rgba(245,197,24,0.2)';
+        tTotal.innerHTML = `
+            <td class="py-4 px-4 font-black text-brand-gold text-sm">المجموع التراكمي (الأساسية)</td>
+            <td class="py-4 px-4 text-center font-black text-brand-gold text-sm">${student.total_max}</td>
+            <td class="py-4 px-4 text-center font-black text-brand-gold text-sm">${student.total_got}</td>
+            <td class="py-4 px-4 text-center font-black text-brand-gold text-sm">${totalEval}</td>
+            <td class="py-4 px-4 no-print"></td>
+        `;
+        tbody.appendChild(tTotal);
+    }
+
+    document.getElementById('searchResultArea').classList.remove('hidden');
+    setTimeout(() => { document.getElementById('searchResultArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+}
+
+// ===== تصدير PDF =====
+async function exportStudentPDF() {
+    const btn = document.getElementById('pdfBtn');
+    const name = document.getElementById('studentNameDisplay').textContent;
+    btn.disabled = true; btn.textContent = '⏳ جاري...';
+    try {
+        const area = document.getElementById('printArea');
+        const canvas = await html2canvas(area, { scale: 2.5, useCORS: true, backgroundColor: '#091220', logging: false });
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const imgW = 190, imgH = Math.min(canvas.height * (imgW / canvas.width), 270);
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 10, 10, imgW, imgH);
+        pdf.save(`نتيجة_${name}.pdf`);
+        showToast('✅', 'تم التصدير', `تم تحميل PDF بنجاح`);
+    } catch(e) {
+        showToast('⚠️', 'خطأ', 'فشل تصدير PDF');
+    }
+    btn.disabled = false; btn.textContent = '⬇️ PDF';
+}
+
+// ===== الإحصائيات =====
+function buildGradeTabs() {
+    const c = document.getElementById('statsGradeTabsContainer');
+    c.innerHTML = '';
+    let tabs = [{ id: 'all', label: 'الكل' }];
+    if (activeStage === 'all_stages') {
+        for (let i = 1; i <= 8; i++) tabs.push({ id: 'grade'+i, label: 'ص'+i });
+    } else if (activeStage === 'primary_low') {
+        for (let i = 1; i <= 3; i++) tabs.push({ id: 'grade'+i, label: 'ص'+i });
+    } else if (activeStage === 'primary_high') {
+        for (let i = 4; i <= 6; i++) tabs.push({ id: 'grade'+i, label: 'ص'+i });
+    } else {
+        for (let i = 7; i <= 8; i++) tabs.push({ id: 'grade'+i, label: 'ص'+i });
+    }
+    tabs.forEach(t => {
+        const b = document.createElement('button');
+        b.id = `sgBtn-${t.id}`;
+        b.textContent = t.label;
+        b.onclick = () => changeStatsGrade(t.id);
+        b.className = t.id === activeStatsGrade
+            ? 'px-3 py-1.5 text-xs font-black rounded-lg transition-all bg-brand-indigo/20 text-brand-indigo border border-brand-indigo/30'
+            : 'px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white hover:bg-white/5';
+        c.appendChild(b);
+    });
+}
+
+function changeStatsGrade(id) {
+    activeStatsGrade = id;
+    document.querySelectorAll('[id^="sgBtn-"]').forEach(b => {
+        b.className = b.id === `sgBtn-${id}`
+            ? 'px-3 py-1.5 text-xs font-black rounded-lg transition-all bg-brand-indigo/20 text-brand-indigo border border-brand-indigo/30'
+            : 'px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white hover:bg-white/5';
+    });
+    renderStats();
+}
+
+function renderStats() {
+    const all = Object.values(db);
+    const list = activeStatsGrade === 'all' ? all : all.filter(s => s.grade === parseInt(activeStatsGrade.replace('grade','')));
+    const total = list.length;
+    const visible = list.filter(s => !s.hidden);
+    const passed = visible.filter(s => s.status === 'ناجح').length;
+    const second = visible.filter(s => s.status === 'دور ثاني').length;
+    const visCnt = visible.length || 1;
+
+    document.getElementById('kpiTotal').textContent = total.toLocaleString('ar-EG');
+    document.getElementById('kpiPassed').textContent = passed.toLocaleString('ar-EG');
+    document.getElementById('kpiPassedPct').textContent = `${((passed/visCnt)*100).toFixed(1)}% من الطلاب`;
+    document.getElementById('kpiSecond').textContent = second.toLocaleString('ar-EG');
+    document.getElementById('kpiSecondPct').textContent = `${((second/visCnt)*100).toFixed(1)}% من الطلاب`;
+
+    renderPieChart(visible);
+    renderFailureChart(visible);
+}
+
+function renderPieChart(students) {
+    const svg = document.getElementById('svgPieChart');
+    const legend = document.getElementById('appreciationLegend');
+    svg.innerHTML = ''; legend.innerHTML = '';
+    if (!students.length) return;
+
+    let buckets = { exc:0, vg:0, gd:0, pass:0, fail:0 };
+    students.forEach(s => {
+        if (s.status === 'دور ثاني') buckets.fail++;
+        else {
+            const p = s.total_max > 0 ? (s.total_got / s.total_max)*100 : 0;
+            if (p >= 90) buckets.exc++;
+            else if (p >= 75) buckets.vg++;
+            else if (p >= 65) buckets.gd++;
+            else buckets.pass++;
+        }
+    });
+
+    const cats = [
+        { label: 'ممتاز (90+)', count: buckets.exc, color: '#f5c518' },
+        { label: 'جيد جداً (75+)', count: buckets.vg, color: '#5b7dff' },
+        { label: 'جيد (65+)', count: buckets.gd, color: '#00c896' },
+        { label: 'مقبول / دور ثانٍ', count: buckets.pass + buckets.fail, color: '#ff7a2f' }
+    ];
+    const total = cats.reduce((s,c) => s+c.count, 0);
+    document.getElementById('donutPct').textContent = total > 0 ? `${((students.length - buckets.fail)/students.length*100).toFixed(0)}%` : '0%';
+
+    let cum = 0;
+    cats.forEach(c => {
+        if (!c.count) return;
+        const pct = c.count/total, start = cum*360, end = (cum+pct)*360;
+        const x1 = 50+40*Math.cos(start*Math.PI/180), y1 = 50+40*Math.sin(start*Math.PI/180);
+        const x2 = 50+40*Math.cos(end*Math.PI/180), y2 = 50+40*Math.sin(end*Math.PI/180);
+        const laf = pct > 0.5 ? 1 : 0;
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d',`M 50 50 L ${x1} ${y1} A 40 40 0 ${laf} 1 ${x2} ${y2} Z`);
+        path.setAttribute('fill', c.color);
+        path.setAttribute('stroke','#091220');
+        path.setAttribute('stroke-width','1');
+        svg.appendChild(path);
+        cum += pct;
+
+        const li = document.createElement('div');
+        li.className = 'flex items-center gap-2 text-[11px] text-slate-300';
+        li.innerHTML = `<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${c.color}"></span><span>${c.label}: <b>${c.count}</b></span>`;
+        legend.appendChild(li);
+    });
+    const hole = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    hole.setAttribute('cx','50'); hole.setAttribute('cy','50'); hole.setAttribute('r','25'); hole.setAttribute('fill','#091220');
+    svg.appendChild(hole);
+}
+
+function renderFailureChart(students) {
+    const area = document.getElementById('subjectsFailureChart');
+    area.innerHTML = '';
+    const secondList = students.filter(s => s.status === 'دور ثاني');
+    if (!secondList.length) {
+        area.innerHTML = '<div class="text-xs text-slate-500 text-center py-10">🎉 لا يوجد طلاب دور ثاني في هذا الصف</div>';
+        return;
+    }
+    let counts = {};
+    secondList.forEach(s => {
+        if (s.second_round) {
+            s.second_round.split(/[،,\s]+/).map(x=>x.trim()).filter(x=>x).forEach(sub => {
+                counts[sub] = (counts[sub]||0)+1;
+            });
+        }
+    });
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    const maxVal = sorted[0]?.[1]||1;
+    sorted.forEach(([sub,count]) => {
+        const pct = (count/maxVal)*100;
+        const row = document.createElement('div');
+        row.className = 'space-y-1';
+        row.innerHTML = `
+            <div class="flex items-center justify-between text-xs font-bold text-slate-300">
+                <span>${sub}</span><span style="color:#ff7a2f;">${count} طالب</span>
+            </div>
+            <div class="w-full rounded-full h-2 overflow-hidden" style="background: rgba(26,45,74,0.6);">
+                <div class="progress-bar h-full rounded-full" style="width:${pct}%; background: linear-gradient(90deg, #f04060, #ff7a2f);"></div>
+            </div>
+        `;
+        area.appendChild(row);
+    });
+}
+
+// ===== إدارة البيانات =====
+function refreshManageTable() {
+    const tbody = document.getElementById('manageTableBody');
+    if (!tbody) return;
+    const entries = Object.entries(db);
+    if (!entries.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-slate-500 text-xs">لا توجد بيانات مسجلة حالياً</td></tr>`;
+        updateStatusDot();
+        return;
+    }
+    tbody.innerHTML = '';
+    entries.forEach(([seat, s]) => {
+        const tr = document.createElement('tr');
+        const badge = s.hidden
+            ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background: rgba(100,116,139,0.1); color:#94a3b8; border: 1px solid rgba(100,116,139,0.2);">محجوب</span>`
+            : s.status === 'ناجح'
+                ? `<span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background: rgba(0,200,150,0.1); color:#00c896; border: 1px solid rgba(0,200,150,0.2);">ناجح</span>`
+                : `<span class="px-2 py-0.5 rounded text-[10px] font-bold" style="background: rgba(255,122,47,0.1); color:#ff7a2f; border: 1px solid rgba(255,122,47,0.2);">دور ثانٍ</span>`;
+        tr.innerHTML = `
+            <td class="py-2.5 px-3 font-mono font-bold text-brand-gold">${seat}</td>
+            <td class="py-2.5 px-3 font-medium text-white">${s.name}</td>
+            <td class="py-2.5 px-3 text-center text-slate-300 text-[11px]">${getGradeLabel(s.grade).replace('الصف ','ص ')}</td>
+            <td class="py-2.5 px-3 text-center">${badge}</td>
+            <td class="py-2.5 px-3 text-center font-bold text-xs" style="color:#5b7dff;">${s.total_got} / ${s.total_max}</td>
+            <td class="py-2.5 px-3 text-center"><button onclick="deleteStudent('${seat}')" class="text-brand-rose hover:text-rose-400 transition-colors">🗑️</button></td>
+        `;
+        tbody.appendChild(tr);
+    });
+    updateStatusDot();
+}
+
+function deleteStudent(seat) {
+    if (confirm(`هل تريد حذف الطالب رقم ${seat}؟`)) {
+        delete db[seat];
+        saveDB(); init();
+        showToast('🗑️', 'تم الحذف', 'تمت إزالة سجل الطالب بنجاح');
+    }
+}
+
+function restoreDemoDataset() {
+    if (confirm('استعادة بيانات تجريبية افتراضية للمرحلة الحالية؟')) {
+        db = { ...DEMO_DATASETS[activeStage] };
+        saveDB(); init();
+        showToast('🔄', 'استعادة', 'تم تحميل البيانات التجريبية');
+    }
+}
+
+function clearDatabase() {
+    if (confirm('⚠️ مسح كامل جميع البيانات؟ لا يمكن التراجع.')) {
+        db = {}; saveDB(); init();
+        showToast('🗑️', 'مسح كامل', 'قاعدة البيانات فارغة الآن');
+    }
+}
+
+function triggerExcelImportTemplate() {
+    const cfg = STAGE_CONFIGS[activeStage];
+    const content = '\uFEFF' + cfg.fields + '\n1001,اسم الطالب الرباعي,7,71,51,42,38,37,0';
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `قالب_${activeStage}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function toggleImportGuide() {
+    const fmt = document.getElementById('importFormatSelect').value;
+    const cfg = STAGE_CONFIGS[activeStage];
+    document.getElementById('sampleFormatCode').textContent = fmt === 'csv' ? cfg.fields : cfg.fields.replace(/,/g, '\t');
+    document.getElementById('manageSubtitle').textContent = `رفع Excel أو إدخال يدوي — ${cfg.label}`;
+}
+
+// ===== استيراد Excel =====
+function handleExcelFileSelect(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const overlay = document.getElementById('processingOverlay');
+    overlay.classList.remove('opacity-0','pointer-events-none');
+    overlay.classList.add('opacity-100');
+
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+        try {
+            const data = new Uint8Array(ev.target.result);
+            const wb = XLSX.read(data, { type: 'array' });
+            db = {};
+            let count = 0;
+
+            wb.SheetNames.forEach(shName => {
+                const ws = wb.Sheets[shName];
+                const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+                if (rows.length < 2) return;
+
+                let hIdx = 0, headers = [];
+                for (let r = 0; r < Math.min(rows.length, 12); r++) {
+                    if (!rows[r]) continue;
+                    const hasSeat = rows[r].some(c => String(c).includes('جلوس') || String(c).includes('رقم'));
+                    const hasName = rows[r].some(c => String(c).includes('الاسم') || String(c).includes('اسم'));
+                    if (hasSeat && hasName) { hIdx = r; headers = rows[r].map(c => String(c||'').trim()); break; }
+                }
+                if (!headers.length) headers = rows[0].map(c => String(c||'').trim());
+
+                const sIdx = headers.findIndex(h => h.includes('جلوس')||h.includes('رقم'));
+                const nIdx = headers.findIndex(h => h.includes('الاسم')||h.includes('اسم'));
+                const gIdx = headers.findIndex(h => h.includes('صف')||h.includes('الصف'));
+                const hiddIdx = headers.findIndex(h => h.includes('حجب')||h.includes('محجوب'));
+                const statIdx = headers.findIndex(h => h.includes('نتيجة')||h.includes('حالة'));
+                const srIdx = headers.findIndex(h => h.includes('مواد الدور')||h.includes('الدور الثانى'));
+
+                if (sIdx === -1 || nIdx === -1) return;
+
+                let sheetGrade = 7;
+                if (shName.toLowerCase().includes('class_')) sheetGrade = parseInt(shName.replace(/\D/g,''))||7;
+
+                for (let r = hIdx+1; r < rows.length; r++) {
+                    const row = rows[r];
+                    if (!row || row.length < 2) continue;
+                    const seat = String(row[sIdx]||'').trim();
+                    const name = String(row[nIdx]||'').trim();
+                    if (!seat || !name) continue;
+
+                    let grade = parseInt(row[gIdx])||sheetGrade;
+                    const cfg = isColorGrade(grade)
+                        ? (grade <= 3 ? STAGE_CONFIGS.primary_low : STAGE_CONFIGS.primary_high)
+                        : STAGE_CONFIGS.prep;
+
+                    const isHidden = hiddIdx !== -1 && String(row[hiddIdx]).trim() === '1';
+                    let grades = [], totalGot = 0, totalMax = 0;
+
+                    cfg.subjects.forEach(sub => {
+                        let fIdx = -1;
+                        sub.aliases.forEach(a => { if (fIdx === -1) fIdx = headers.findIndex(h => h.replace(/\s+/g,'').includes(a.replace(/\s+/g,''))); });
+                        let val = 'غ';
+                        if (fIdx !== -1) {
+                            const raw = row[fIdx];
+                            if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+                                const t = String(raw).trim();
+                                if (t !== 'غ' && t !== 'غياب') {
+                                    const n = parseFloat(t);
+                                    if (!isNaN(n)) { val = Math.min(Math.max(n,0),sub.max); if (!sub.isExtra) totalGot += val; }
+                                }
+                            }
+                        }
+                        grades.push({ subject: sub.name, got: val, max: sub.max, isExtra: sub.isExtra });
+                        if (!sub.isExtra) totalMax += sub.max;
+                    });
+
+                    let status = 'ناجح', secondRound = null;
+                    if (statIdx !== -1) {
+                        const sv = String(row[statIdx]).trim();
+                        if (sv.includes('دور')||sv.includes('ثان')||sv==='2'||sv==='3') status = 'دور ثاني';
+                    }
+                    if (srIdx !== -1 && row[srIdx]) {
+                        const sv = String(row[srIdx]).trim();
+                        if (sv && sv !== 'NaN' && sv !== '-') { secondRound = sv; status = 'دور ثاني'; }
+                    }
+
+                    db[seat] = { name, grade, status, total_got: parseFloat(totalGot.toFixed(1)), total_max: totalMax, second_round: secondRound, hidden: isHidden, grades };
+                    count++;
+                }
+            });
+
+            saveDB(); init();
+            showToast('✅', 'تم الاستيراد', `تم رصد ${count} طالب بنجاح`);
+        } catch(err) {
+            showToast('❌', 'خطأ', 'فشل قراءة ملف Excel');
+        } finally {
+            overlay.classList.remove('opacity-100');
+            overlay.classList.add('opacity-0','pointer-events-none');
+            e.target.value = '';
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function parseAndImportRawData() {
+    const raw = document.getElementById('importRawDataTextarea').value.trim();
+    if (!raw) { showToast('⚠️','تنبيه','أدخل البيانات أولاً'); return; }
+    const fmt = document.getElementById('importFormatSelect').value;
+    const delim = fmt === 'csv' ? ',' : '\t';
+    const lines = raw.split('\n').map(l=>l.trim()).filter(l=>l);
+    if (lines.length < 2) { showToast('⚠️','خطأ','البيانات ضئيلة جداً'); return; }
+
+    const headers = lines[0].split(delim).map(h=>h.trim());
+    const sIdx = headers.findIndex(h=>h.includes('جلوس')||h.includes('رقم'));
+    const nIdx = headers.findIndex(h=>h.includes('الاسم')||h.includes('اسم'));
+    const gIdx = headers.findIndex(h=>h.includes('صف'));
+    if (sIdx === -1 || nIdx === -1) { showToast('❌','خطأ','تحقق من حقلي رقم الجلوس والاسم'); return; }
+
+    const cfg = STAGE_CONFIGS[activeStage];
+    let count = 0;
+    for (let i = 1; i < lines.length; i++) {
+        const cells = lines[i].split(delim).map(c=>c.trim());
+        const seat = cells[sIdx], name = cells[nIdx];
+        if (!seat || !name) continue;
+        let grade = parseInt(cells[gIdx])||7, grades = [], tot = 0, totMax = 0;
+        cfg.subjects.forEach(sub => {
+            let fi = -1;
+            sub.aliases.forEach(a => { if (fi===-1) fi = headers.findIndex(h=>h.includes(a)); });
+            let val = 'غ';
+            if (fi !== -1 && cells[fi] !== undefined && cells[fi] !== '') {
+                const n = parseFloat(cells[fi]);
+                if (!isNaN(n)) { val = Math.min(Math.max(n,0),sub.max); if (!sub.isExtra) tot += val; }
+            }
+            grades.push({ subject: sub.name, got: val, max: sub.max, isExtra: sub.isExtra });
+            if (!sub.isExtra) totMax += sub.max;
+        });
+        db[seat] = { name, grade, status:'ناجح', total_got: parseFloat(tot.toFixed(1)), total_max: totMax||280, second_round: null, hidden: false, grades };
+        count++;
+    }
+    saveDB(); init();
+    document.getElementById('importRawDataTextarea').value = '';
+    showToast('✅','استيراد ناجح',`تم دمج ${count} سجل`);
+}
+
+// إغلاق الاقتراحات عند الضغط خارجها
+document.addEventListener('click', e => {
+    if (!e.target.closest('#suggestionsList') && !e.target.closest('#searchInput')) {
+        document.getElementById('suggestionsList').classList.add('hidden');
+    }
+});
+
+// ===== نظام الأدمن =====
+const ADMIN_PASS_HASH = 'ctrl2026'; // غيّر هذا لكلمة سرك
+let adminTapCount = 0, adminTapTimer = null;
+let isAdmin = false;
+
+function handleAdminTap() {
+    adminTapCount++;
+    clearTimeout(adminTapTimer);
+    if (adminTapCount >= 5) {
+        adminTapCount = 0;
+        openAdminModal();
+    } else {
+        adminTapTimer = setTimeout(() => { adminTapCount = 0; }, 2000);
+    }
+}
+
+function openAdminModal() {
+    document.getElementById('adminLoginModal').classList.remove('hidden');
+    setTimeout(() => document.getElementById('adminPassInput').focus(), 100);
+}
+
+function closeAdminModal() {
+    document.getElementById('adminLoginModal').classList.add('hidden');
+    document.getElementById('adminPassInput').value = '';
+    document.getElementById('adminPassError').classList.add('hidden');
+}
+
+function checkAdminPass() {
+    const val = document.getElementById('adminPassInput').value.trim();
+    if (val === ADMIN_PASS_HASH) {
+        closeAdminModal();
+        activateAdmin();
+    } else {
+        document.getElementById('adminPassError').classList.remove('hidden');
+        document.getElementById('adminPassInput').value = '';
+        document.getElementById('adminPassInput').style.borderColor = 'rgba(240,64,96,0.5)';
+        setTimeout(() => {
+            document.getElementById('adminPassInput').style.borderColor = 'rgba(26,45,74,0.8)';
+            document.getElementById('adminPassError').classList.add('hidden');
+        }, 2000);
+    }
+}
+
+function activateAdmin() {
+    isAdmin = true;
+    // إظهار عناصر الأدمن
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.remove('hidden'));
+    // إظهار شريط الأدمن السفلي
+    const bar = document.getElementById('adminBar');
+    bar.classList.remove('hidden');
+    setTimeout(() => bar.style.transform = 'translateY(0)', 50);
+    // padding للـ body لأن الشريط يأخذ مساحة
+    document.body.style.paddingBottom = '60px';
+    // مزامنة محدد المرحلة
+    document.getElementById('adminStageSelectorBar').value = activeStage;
+    showToast('🔐', 'وضع الأدمن', 'مرحباً بك في لوحة التحكم');
+}
+
+function logoutAdmin() {
+    isAdmin = false;
+    document.querySelectorAll('.admin-only').forEach(el => el.classList.add('hidden'));
+    const bar = document.getElementById('adminBar');
+    bar.style.transform = 'translateY(100%)';
+    setTimeout(() => bar.classList.add('hidden'), 300);
+    document.body.style.paddingBottom = '';
+    // العودة لتبويب البحث
+    switchTab('search');
+    showToast('👋', 'تسجيل الخروج', 'تم الخروج من وضع الأدمن');
+}
+
+function adminChangeStage() {
+    const val = document.getElementById('adminStageSelectorBar').value;
+    document.getElementById('stageSelector').value = val;
+    changeActiveStage();
+    document.getElementById('adminStageLabelBar').textContent = '— ' + STAGE_CONFIGS[val].label;
+}
+
+// إغلاق الـ modal بالضغط خارجه
+document.getElementById('adminLoginModal').addEventListener('click', function(e) {
+    if (e.target === this) closeAdminModal();
+});
+
+</script>
+
+<!-- ===== شاشة تسجيل الدخول للأدمن ===== -->
+<div id="adminLoginModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 hidden" style="background: rgba(4,8,16,0.97); backdrop-filter: blur(20px);">
+    <div class="glass rounded-2xl p-6 w-full max-w-sm shadow-2xl" style="border: 1px solid rgba(245,197,24,0.2);">
+        <div class="text-center mb-6">
+            <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-3" style="background: linear-gradient(135deg, rgba(245,197,24,0.15), rgba(91,125,255,0.15));">🔐</div>
+            <h3 class="text-lg font-black text-white">لوحة التحكم</h3>
+            <p class="text-xs text-slate-500 mt-1">أدخل كلمة المرور للوصول إلى بيانات الأدمن</p>
+        </div>
+        <div class="relative mb-4">
+            <input type="password" id="adminPassInput" placeholder="كلمة المرور..." maxlength="30"
+                class="w-full py-3 px-4 text-base font-bold text-white placeholder-slate-600 rounded-xl outline-none transition-all"
+                style="background: rgba(4,8,16,0.8); border: 2px solid rgba(26,45,74,0.8);"
+                onfocus="this.style.borderColor='rgba(245,197,24,0.5)'"
+                onblur="this.style.borderColor='rgba(26,45,74,0.8)'"
+                onkeydown="if(event.key==='Enter') checkAdminPass()">
+        </div>
+        <p id="adminPassError" class="text-xs text-brand-rose text-center mb-4 hidden">❌ كلمة المرور غير صحيحة</p>
+        <div class="flex gap-2">
+            <button onclick="checkAdminPass()" class="flex-1 py-2.5 text-sm font-black rounded-xl transition-all" style="background: #f5c518; color: #040810;">دخول ←</button>
+            <button onclick="closeAdminModal()" class="px-4 py-2.5 text-sm font-bold rounded-xl transition-all text-slate-400 hover:text-white" style="background: rgba(26,45,74,0.4);">إلغاء</button>
+        </div>
+        <!-- تلميح صغير مخفي -->
+        <p class="text-[10px] text-slate-700 text-center mt-4">v5 Pro • Admin Panel</p>
+    </div>
+</div>
+
+<!-- ===== شريط الأدمن المنبثق ===== -->
+<div id="adminBar" class="fixed bottom-0 left-0 right-0 z-50 translate-y-full transition-transform duration-300 hidden no-print" style="background: rgba(9,18,32,0.98); border-top: 1px solid rgba(245,197,24,0.3);">
+    <div class="max-w-4xl mx-auto px-4 py-2 flex items-center justify-between gap-3 flex-wrap">
+        <div class="flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-brand-gold animate-pulse"></span>
+            <span class="text-xs font-black text-brand-gold">وضع الأدمن نشط</span>
+            <span id="adminStageLabelBar" class="text-[10px] text-slate-400">— جميع الصفوف</span>
+        </div>
+        <div class="flex items-center gap-2">
+            <select id="adminStageSelectorBar" onchange="adminChangeStage()" class="text-[11px] font-bold text-brand-gold py-1 px-2 rounded-lg outline-none cursor-pointer" style="background: rgba(4,8,16,0.9); border: 1px solid rgba(245,197,24,0.3);">
+                <option value="all_stages">🏫 جميع الصفوف</option>
+                <option value="primary_low">🎒 ابتدائية (1-3)</option>
+                <option value="primary_high">🎒 ابتدائية (4-6)</option>
+                <option value="prep">🏫 إعدادية (7-8)</option>
+            </select>
+            <button onclick="switchTab('stats')" class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all" style="background: rgba(91,125,255,0.1); color:#5b7dff; border:1px solid rgba(91,125,255,0.25);">📊 إحصائيات</button>
+            <button onclick="switchTab('manage')" class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all" style="background: rgba(0,200,150,0.1); color:#00c896; border:1px solid rgba(0,200,150,0.25);">⚙️ البيانات</button>
+            <button onclick="logoutAdmin()" class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all" style="background: rgba(240,64,96,0.1); color:#f04060; border:1px solid rgba(240,64,96,0.25);">🚪 خروج</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
