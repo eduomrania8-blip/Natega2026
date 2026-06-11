@@ -177,7 +177,7 @@
                 <div class="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0" style="background: linear-gradient(135deg, #f5c518, #5b7dff);">🎓</div>
                 <div>
                     <h1 class="font-black text-sm shimmer-text leading-tight">بوابة الكنترول المدرسي</h1>
-                    <p class="text-[9px] text-slate-500 leading-none">v5 Pro</p>
+                    <p class="text-[9px] text-slate-500 leading-none">مدرسة الشهيد محمد سليمان سلامة الإعدادية بنين &nbsp;|&nbsp; <span style="color:#f5c518;">تصميم / أ. ضياء العطار</span></p>
                 </div>
             </div>
             <select id="stageSelector" class="hidden admin-only" onchange="changeActiveStage()" class="text-[11px] font-bold text-brand-gold py-1.5 px-2 rounded-lg outline-none cursor-pointer max-w-[160px]" style="background: rgba(9,18,32,0.9); border: 1px solid rgba(26,45,74,0.9);">
@@ -191,6 +191,7 @@
         <nav class="flex items-center gap-1 p-1 rounded-xl w-full" style="background: rgba(9,18,32,0.8); border: 1px solid rgba(26,45,74,0.6);">
             <button onclick="switchTab('search')" id="tabBtn-search" class="nav-tab active flex-1 py-2 text-xs font-bold rounded-lg transition-all text-brand-gold bg-brand-cardLight text-center">🔍 الاستعلام عن النتيجة</button>
             <button onclick="switchTab('stats')" id="tabBtn-stats" class="nav-tab flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white text-center hidden admin-only">📊 إحصائيات</button>
+            <button onclick="switchTab('top')" id="tabBtn-top" class="nav-tab flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white text-center">🥇 الأوائل</button>
             <button onclick="switchTab('manage')" id="tabBtn-manage" class="nav-tab flex-1 py-2 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white flex items-center justify-center gap-1 hidden admin-only">
                 ⚙️ بيانات <span id="dataStatusDot" class="w-2 h-2 rounded-full bg-brand-emerald shrink-0"></span>
             </button>
@@ -251,9 +252,6 @@
                     <span class="w-2 h-2 rounded-full bg-brand-gold"></span> كشف درجات الطالب الرسمي
                 </p>
                 <div class="flex items-center gap-2">
-                    <button onclick="window.print()" class="no-print flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl transition-all duration-150" style="background: rgba(91,125,255,0.1); border: 1px solid rgba(91,125,255,0.25); color: #5b7dff;">
-                        🖨️ طباعة
-                    </button>
                     <button id="pdfBtn" onclick="exportStudentPDF()" class="no-print flex items-center gap-1.5 px-4 py-2 text-xs font-black rounded-xl transition-all duration-150" style="background: rgba(245,197,24,0.1); border: 1px solid rgba(245,197,24,0.25); color: #f5c518;">
                         ⬇️ PDF
                     </button>
@@ -466,6 +464,25 @@
                 <div id="subjectsFailureChart" class="flex flex-col gap-3"></div>
             </div>
         </div>
+    </section>
+
+    <!-- =========== تبويب أوائل الصفوف =========== -->
+    <section id="tabContent-top" class="tab-panel hidden fade-up">
+        <div class="text-center mb-5">
+            <div class="inline-flex items-center gap-2 text-xs font-bold mb-3 px-3 py-1 rounded-full" style="background: rgba(245,197,24,0.08); border: 1px solid rgba(245,197,24,0.2); color: #f5c518;">
+                <span>🏆</span> شرف التفوق
+            </div>
+            <h2 class="text-2xl md:text-4xl font-black text-white" id="topTitleMain">أوائل الطلاب بكل صف</h2>
+            <p class="text-sm text-slate-500 mt-2">مدرسة الشهيد محمد سليمان سلامة الإعدادية بنين — العام الدراسي 2025/2026</p>
+        </div>
+
+        <!-- فلاتر الصفوف -->
+        <div class="flex flex-wrap gap-2 justify-center mb-6 p-2 rounded-xl max-w-lg mx-auto" style="background: rgba(9,18,32,0.7); border: 1px solid rgba(26,45,74,0.5);">
+            <div id="topGradeTabsContainer" class="flex flex-wrap gap-1.5 justify-center w-full"></div>
+        </div>
+
+        <!-- حاوية أوائل الصفوف -->
+        <div id="topStudentsContainer" class="space-y-5"></div>
     </section>
 
     <!-- =========== تبويب إدارة البيانات =========== -->
@@ -727,6 +744,7 @@ function switchTab(id) {
     document.getElementById(`tabContent-${id}`).classList.remove('hidden');
     if (id === 'stats') renderStats();
     else if (id === 'manage') refreshManageTable();
+    else if (id === 'top') renderTopStudents();
 }
 
 function getGradeLabel(n) {
@@ -849,6 +867,8 @@ function selectStudent(seat) {
             const gradesTbl = document.querySelector('table.grades-table')?.closest('.overflow-x-auto');
             if (gradesTbl) gradesTbl.style.display = '';
             setTimeout(() => { try { confetti({ particleCount: 80, spread: 60, origin: { y: 0.5 } }); } catch(e){} }, 200);
+            // عرض شاشة التهنئة
+            showCongratsModal(student, seat, pct, appr);
         } else {
             document.getElementById('resultBanner').className = 'p-4 md:p-6 border-b transition-all result-card-fail';
             document.getElementById('statusBadgeMain').className = 'badge-fail px-5 py-2 rounded-full text-sm font-black tracking-wide';
@@ -911,10 +931,9 @@ function selectStudent(seat) {
         let addedExtraHeader = false;
 
         student.grades.forEach(g => {
-            // المستوى الرفيع: أظهره فقط إذا كان لديه درجة فعلية (> 0)
-            const isMostawaa = g.subject && g.subject.includes('المستوى الرفيع');
+            // إخفاء أي مادة ليس بها درجة (غير مقررة / غياب / صفر)
             const isAbsent = g.got === 'غ' || g.got === null || g.got === undefined || g.got === '' || g.got === 0 || g.got === '0';
-            if (isMostawaa && isAbsent) return; // تخطّ المستوى الرفيع إذا لم يسجل فيه
+            if (isAbsent) return; // تخطّ المادة كاملاً إذا لم تكن مقررة أو لم تُرصد
 
             // إضافة رأس فاصل للمواد الإضافية
             if (g.isExtra && !addedExtraHeader) {
@@ -924,8 +943,8 @@ function selectStudent(seat) {
                 tbody.appendChild(sepRow);
             }
 
-            const isAbsentDisplay = g.got === 'غ' || g.got === null || g.got === undefined || g.got === '';
-            const gotNum = isAbsentDisplay ? 0 : parseFloat(g.got);
+            const isAbsentDisplay = false; // المواد بدون درجات محجوبة مسبقاً
+            const gotNum = parseFloat(g.got);
             const subPct = g.max > 0 ? (gotNum / g.max) * 100 : 0;
 
             let scoreColor, barBg, evalLabel;
@@ -1367,7 +1386,165 @@ function parseAndImportRawData() {
     showToast('✅','استيراد ناجح',`تم دمج ${count} سجل`);
 }
 
-// إغلاق الاقتراحات عند الضغط خارجها
+// ===== شاشة التهنئة للناجحين =====
+function showCongratsModal(student, seat, pct, appr) {
+    document.getElementById('congratsName').textContent = student.name;
+    document.getElementById('congratsMeta').textContent = `${getGradeLabel(student.grade)} — رقم الجلوس: ${seat}`;
+    document.getElementById('congratsTotal').textContent = `${student.total_got} / ${student.total_max}`;
+    document.getElementById('congratsPct').textContent = pct.toFixed(1) + '%';
+    document.getElementById('congratsAppr').textContent = appr.text || '---';
+    const stars = appr.stars || 3;
+    document.getElementById('congratsStars').textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+    const modal = document.getElementById('congratsModal');
+    modal.classList.remove('hidden');
+    // كونفيتي احتفالي داخل الشاشة
+    setTimeout(() => {
+        try { confetti({ particleCount: 120, spread: 80, origin: { y: 0.3 }, colors: ['#f5c518','#00c896','#5b7dff','#ffffff'] }); } catch(e){}
+    }, 150);
+}
+
+function closeCongratsModal() {
+    document.getElementById('congratsModal').classList.add('hidden');
+    setTimeout(() => { document.getElementById('searchResultArea').scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 100);
+}
+
+// ===== أوائل الصفوف =====
+let activeTopGrade = 'all';
+
+function renderTopStudents() {
+    buildTopGradeTabs();
+    displayTopStudents();
+}
+
+function buildTopGradeTabs() {
+    const c = document.getElementById('topGradeTabsContainer');
+    c.innerHTML = '';
+    let tabs = [{ id: 'all', label: 'كل الصفوف' }];
+    if (activeStage === 'all_stages') {
+        for (let i = 1; i <= 8; i++) tabs.push({ id: 'grade'+i, label: getGradeShort(i) });
+    } else if (activeStage === 'primary_low') {
+        for (let i = 1; i <= 3; i++) tabs.push({ id: 'grade'+i, label: getGradeShort(i) });
+    } else if (activeStage === 'primary_high') {
+        for (let i = 4; i <= 6; i++) tabs.push({ id: 'grade'+i, label: getGradeShort(i) });
+    } else {
+        for (let i = 7; i <= 8; i++) tabs.push({ id: 'grade'+i, label: getGradeShort(i) });
+    }
+    tabs.forEach(t => {
+        const b = document.createElement('button');
+        b.id = `tgBtn-${t.id}`;
+        b.textContent = t.label;
+        b.onclick = () => { activeTopGrade = t.id; buildTopGradeTabs(); displayTopStudents(); };
+        b.className = t.id === activeTopGrade
+            ? 'px-3 py-1.5 text-xs font-black rounded-lg transition-all bg-brand-gold/20 text-brand-gold border border-brand-gold/40'
+            : 'px-3 py-1.5 text-xs font-bold rounded-lg transition-all text-slate-400 hover:text-white hover:bg-white/5';
+        c.appendChild(b);
+    });
+}
+
+function getGradeShort(n) {
+    const m={1:'أول',2:'ثاني',3:'ثالث',4:'رابع',5:'خامس',6:'سادس',7:'سابع',8:'ثامن'};
+    return m[n]||('ص'+n);
+}
+
+function getTopStudentsPerGrade(gradeNum, topN) {
+    const all = Object.entries(db);
+    const filtered = all.filter(([,s]) => !s.hidden && s.status === 'ناجح' && (gradeNum === null || s.grade === gradeNum));
+    filtered.sort((a,b) => {
+        const pa = a[1].total_max > 0 ? a[1].total_got/a[1].total_max : 0;
+        const pb = b[1].total_max > 0 ? b[1].total_got/b[1].total_max : 0;
+        return pb - pa;
+    });
+    return filtered.slice(0, topN || 5);
+}
+
+function getMedalIcon(rank) {
+    return rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `<span class="text-slate-400 font-black">${rank}</span>`;
+}
+function getMedalBorder(rank) {
+    return rank === 1 ? 'rgba(245,197,24,0.4)' : rank === 2 ? 'rgba(192,192,192,0.4)' : rank === 3 ? 'rgba(205,127,50,0.4)' : 'rgba(26,45,74,0.5)';
+}
+function getMedalGlow(rank) {
+    return rank === 1 ? 'rgba(245,197,24,0.08)' : rank === 2 ? 'rgba(192,192,192,0.05)' : rank === 3 ? 'rgba(205,127,50,0.06)' : 'transparent';
+}
+
+function displayTopStudents() {
+    const container = document.getElementById('topStudentsContainer');
+    container.innerHTML = '';
+
+    const useColor = (activeStage === 'primary_low' || activeStage === 'primary_high');
+
+    // تحديد الصفوف المراد عرضها
+    let gradeNums = [];
+    if (activeTopGrade === 'all') {
+        const allGrades = [...new Set(Object.values(db).map(s => s.grade))].sort((a,b)=>a-b);
+        gradeNums = allGrades;
+    } else {
+        gradeNums = [parseInt(activeTopGrade.replace('grade',''))];
+    }
+
+    if (gradeNums.length === 0) {
+        container.innerHTML = `<div class="text-center py-12 text-slate-500 text-sm">لا توجد بيانات متاحة للمرحلة المختارة</div>`;
+        return;
+    }
+
+    gradeNums.forEach(gNum => {
+        const topList = getTopStudentsPerGrade(gNum, 5);
+        if (!topList.length) return;
+
+        const section = document.createElement('div');
+        section.className = 'glass rounded-2xl overflow-hidden mb-4';
+        section.style.cssText = 'border: 1px solid rgba(245,197,24,0.2);';
+
+        // رأس الصف
+        section.innerHTML = `
+            <div class="px-5 py-3 flex items-center justify-between flex-wrap gap-2" style="background: linear-gradient(135deg, rgba(245,197,24,0.08), rgba(91,125,255,0.06)); border-bottom: 1px solid rgba(26,45,74,0.5);">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">🏫</span>
+                    <div>
+                        <h3 class="font-black text-white text-sm">${getGradeLabel(gNum)}</h3>
+                        <p class="text-[10px] text-slate-500">أوائل الطلاب الناجحين — مدرسة الشهيد محمد سليمان سلامة الإعدادية بنين</p>
+                    </div>
+                </div>
+                <span class="text-[10px] font-bold px-3 py-1 rounded-full" style="background: rgba(245,197,24,0.1); color: #f5c518; border: 1px solid rgba(245,197,24,0.25);">
+                    أفضل ${topList.length} طلاب
+                </span>
+            </div>
+            <div class="p-4 space-y-3" id="topList-grade${gNum}"></div>
+        `;
+        container.appendChild(section);
+
+        const listContainer = section.querySelector(`#topList-grade${gNum}`);
+        topList.forEach(([seat, student], idx) => {
+            const rank = idx + 1;
+            const pct = student.total_max > 0 ? (student.total_got / student.total_max) * 100 : 0;
+            const appr = getAppreciation(pct, useColor);
+
+            const card = document.createElement('div');
+            card.className = 'flex items-center gap-3 p-3 rounded-xl transition-all cursor-pointer';
+            card.style.cssText = `background: ${getMedalGlow(rank)}; border: 1px solid ${getMedalBorder(rank)};`;
+            card.onmouseenter = () => card.style.transform = 'scale(1.01)';
+            card.onmouseleave = () => card.style.transform = '';
+            card.onclick = () => { document.getElementById('searchInput').value = seat; selectStudent(seat); switchTab('search'); };
+
+            card.innerHTML = `
+                <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style="background: ${getMedalGlow(rank)||'rgba(26,45,74,0.5)'}; border: 1px solid ${getMedalBorder(rank)};">
+                    ${getMedalIcon(rank)}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-black text-white text-sm truncate">${student.name}</p>
+                    <p class="text-[10px] text-slate-400">رقم الجلوس: <span class="font-mono text-brand-gold font-bold">${seat}</span></p>
+                </div>
+                <div class="flex flex-col items-end gap-1 shrink-0">
+                    <span class="text-sm font-black" style="color: ${rank===1?'#f5c518':rank===2?'#c0c0c0':rank===3?'#cd7f32':'#5b7dff'};">${student.total_got} / ${student.total_max}</span>
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full" style="background: rgba(0,200,150,0.1); color: #00c896; border: 1px solid rgba(0,200,150,0.2);">${pct.toFixed(1)}%</span>
+                </div>
+            `;
+            listContainer.appendChild(card);
+        });
+    });
+}
+
+
 document.addEventListener('click', e => {
     if (!e.target.closest('#suggestionsList') && !e.target.closest('#searchInput')) {
         document.getElementById('suggestionsList').classList.add('hidden');
@@ -1458,6 +1635,68 @@ document.getElementById('adminLoginModal').addEventListener('click', function(e)
 
 </script>
 
+<!-- ===== شاشة تهنئة الناجحين ===== -->
+<div id="congratsModal" class="fixed inset-0 z-[200] flex items-center justify-center p-4 hidden" style="background: rgba(4,8,16,0.92); backdrop-filter: blur(24px);" onclick="closeCongratsModal()">
+    <div class="relative w-full max-w-md text-center" onclick="event.stopPropagation()">
+        <!-- بطاقة التهنئة -->
+        <div class="glass rounded-3xl overflow-hidden shadow-2xl" style="border: 1px solid rgba(245,197,24,0.35);">
+            <!-- شريط ذهبي علوي -->
+            <div class="h-1.5 w-full" style="background: linear-gradient(90deg, #5b7dff, #f5c518, #00c896, #f5c518, #5b7dff); background-size: 200% auto; animation: shimmer 3s linear infinite;"></div>
+
+            <div class="px-6 pt-8 pb-6">
+                <!-- أيقونة التفوق -->
+                <div class="w-20 h-20 rounded-full flex items-center justify-center text-4xl mx-auto mb-4" style="background: linear-gradient(135deg, rgba(245,197,24,0.15), rgba(0,200,150,0.15)); border: 2px solid rgba(245,197,24,0.3);">
+                    🏆
+                </div>
+
+                <!-- اسم المدرسة -->
+                <p class="text-[11px] font-bold mb-1" style="color: rgba(245,197,24,0.7); letter-spacing: 0.5px;">
+                    مدرسة الشهيد محمد سليمان سلامة الإعدادية بنين
+                </p>
+                <p class="text-[10px] text-slate-500 mb-4">العام الدراسي 2025 / 2026</p>
+
+                <!-- رسالة التهنئة -->
+                <h2 class="text-xl md:text-2xl font-black text-white mb-2">🎉 مبروك النجاح 🎉</h2>
+                <p class="text-base font-black mb-1" style="color: #f5c518;" id="congratsName">---</p>
+                <p class="text-xs text-slate-400 mb-4" id="congratsMeta">---</p>
+
+                <!-- بطاقة الدرجة -->
+                <div class="flex items-center justify-center gap-4 mb-6">
+                    <div class="glass-light rounded-2xl px-5 py-3 text-center" style="border: 1px solid rgba(0,200,150,0.3);">
+                        <p class="text-[10px] text-slate-400 font-bold">المجموع</p>
+                        <p class="text-xl font-black" style="color: #00c896;" id="congratsTotal">--- / ---</p>
+                    </div>
+                    <div class="glass-light rounded-2xl px-5 py-3 text-center" style="border: 1px solid rgba(91,125,255,0.3);">
+                        <p class="text-[10px] text-slate-400 font-bold">النسبة</p>
+                        <p class="text-xl font-black" style="color: #5b7dff;" id="congratsPct">0%</p>
+                    </div>
+                    <div class="glass-light rounded-2xl px-5 py-3 text-center" style="border: 1px solid rgba(245,197,24,0.3);">
+                        <p class="text-[10px] text-slate-400 font-bold">التقدير</p>
+                        <p class="text-sm font-black" style="color: #f5c518;" id="congratsAppr">---</p>
+                    </div>
+                </div>
+
+                <!-- رسالة دعم -->
+                <p class="text-xs text-slate-400 leading-relaxed mb-6 max-w-xs mx-auto">
+                    نهنئك بهذا النجاح المستحق ونتمنى لك مستقبلاً مشرقاً مليئاً بالتفوق والإنجازات 🌟
+                </p>
+
+                <!-- نجوم -->
+                <div class="star-rating text-2xl mb-5" id="congratsStars">★★★★★</div>
+
+                <!-- زر الإغلاق -->
+                <button onclick="closeCongratsModal()" class="w-full py-3 text-sm font-black rounded-2xl transition-all" style="background: linear-gradient(135deg, #f5c518, #ff9500); color: #040810;">
+                    متابعة ← عرض كشف الدرجات
+                </button>
+
+            </div>
+
+            <!-- شريط ذهبي سفلي -->
+            <div class="h-1 w-full" style="background: linear-gradient(90deg, transparent, #f5c518, transparent);"></div>
+        </div>
+    </div>
+</div>
+
 <!-- ===== شاشة تسجيل الدخول للأدمن ===== -->
 <div id="adminLoginModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 hidden" style="background: rgba(4,8,16,0.97); backdrop-filter: blur(20px);">
     <div class="glass rounded-2xl p-6 w-full max-w-sm shadow-2xl" style="border: 1px solid rgba(245,197,24,0.2);">
@@ -1500,6 +1739,7 @@ document.getElementById('adminLoginModal').addEventListener('click', function(e)
                 <option value="prep">🏫 إعدادية (7-8)</option>
             </select>
             <button onclick="switchTab('stats')" class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all" style="background: rgba(91,125,255,0.1); color:#5b7dff; border:1px solid rgba(91,125,255,0.25);">📊 إحصائيات</button>
+            <button onclick="switchTab('top')" class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all" style="background: rgba(245,197,24,0.1); color:#f5c518; border:1px solid rgba(245,197,24,0.25);">🥇 الأوائل</button>
             <button onclick="switchTab('manage')" class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all" style="background: rgba(0,200,150,0.1); color:#00c896; border:1px solid rgba(0,200,150,0.25);">⚙️ البيانات</button>
             <button onclick="logoutAdmin()" class="px-3 py-1 text-[11px] font-bold rounded-lg transition-all" style="background: rgba(240,64,96,0.1); color:#f04060; border:1px solid rgba(240,64,96,0.25);">🚪 خروج</button>
         </div>
