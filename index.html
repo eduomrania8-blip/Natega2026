@@ -776,7 +776,8 @@ function handleSearchInput() {
         div.onmouseleave = () => div.style.background = 'transparent';
         div.onclick = () => selectStudent(seat);
 
-        const statusIcon = student.hidden ? '🔒' : (student.status === 'ناجح' ? '✅' : '📝');
+        const isBlocked = student.hidden || student.status === 'دور ثاني';
+        const statusIcon = isBlocked ? '🔒' : '✅';
         const pct = student.total_max > 0 ? ((student.total_got / student.total_max) * 100).toFixed(0) : 0;
 
         div.innerHTML = `
@@ -785,8 +786,8 @@ function handleSearchInput() {
                 <p class="text-[10px] text-slate-400 mt-0.5">رقم الجلوس: <span class="font-mono text-brand-gold font-bold">${seat}</span> — ${getGradeLabel(student.grade)}</p>
             </div>
             <div class="flex flex-col items-end gap-1">
-                <span class="text-xs font-bold">${statusIcon} ${student.hidden ? 'محجوب' : student.status}</span>
-                ${!student.hidden ? `<span class="text-[10px] text-slate-500">${pct}%</span>` : ''}
+                <span class="text-xs font-bold">${statusIcon} ${isBlocked ? 'محجوبة' : 'ناجح'}</span>
+                ${!isBlocked ? `<span class="text-[10px] text-slate-500">${pct}%</span>` : ''}
             </div>
         `;
         sugg.appendChild(div);
@@ -815,11 +816,11 @@ function selectStudent(seat) {
     document.getElementById('studentNameDisplay').textContent = student.name;
     document.getElementById('studentMetaDisplay').textContent = `${getGradeLabel(student.grade)} — رقم الجلوس: ${seat}`;
 
-    if (student.hidden) {
-        // محجوب
+    if (student.hidden || student.status === 'دور ثاني') {
+        // محجوب أو دور ثاني — نفس الشاشة بدون أي تفاصيل
         document.getElementById('studentNormalContent').classList.add('hidden');
         document.getElementById('studentBlockedContent').classList.remove('hidden');
-        document.getElementById('resultBanner').className = 'p-6 border-b border-brand-border transition-all result-card-hidden';
+        document.getElementById('resultBanner').className = 'p-4 border-b border-brand-border transition-all result-card-hidden';
         document.getElementById('resultIcon').style.background = 'rgba(100,116,139,0.12)';
         document.getElementById('resultIcon').textContent = '🔒';
         document.getElementById('statusBadgeMain').className = 'badge-hidden px-5 py-2 rounded-full text-sm font-black tracking-wide';
